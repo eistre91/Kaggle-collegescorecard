@@ -1,0 +1,228 @@
+---
+title: "Milestone Report"
+author: "Erik Istre"
+date: "December 22, 2015"
+output: html_document
+---
+
+```{r, echo=FALSE, message = FALSE, warning = FALSE}
+setwd("C:/Kaggle-collegescorecard/")
+library(ggplot2)
+library(dplyr)
+library(RSQLite)
+library(gridExtra)
+
+my_db <- src_sqlite("database.sqlite")
+tbl <- tbl(my_db, "Scorecard")
+data_dictionary <- read.csv("CollegeScorecardDataDictionary-09-12-2015.csv")
+
+p10_earnings <- select(tbl, contains("_p10"), -CUML_DEBT_P10)
+completion_rates <- select(tbl, contains("pooled_sup"), contains("C150"), contains("C200"))
+descriptive_information <- select(tbl, UNITID:CCSIZSET, -LATITUDE, -LONGITUDE)
+special_flags <- select(tbl, HBCU:WOMENONLY)
+admissions_information <- select(tbl, ADM_RATE:SAT_AVG_ALL)
+degree_breakdown <- select(tbl, PCIP01:PCIP54)
+online <- select(tbl, DISTANCEONLY)
+operating <- select(tbl, CURROPER)
+ug_body <- select(tbl, UGDS:PPTUG_EF2)
+cost <- select(tbl, NPT4_PUB:TUITIONFEE_PROG)
+school_business <- select(tbl, TUITFTE:PFTFAC)
+aid <- select(tbl, PCTPELL, PCTFLOAN, DEBT_MDN:CUML_DEBT_P10)
+retention <- select(tbl, RET_FT4:RET_PTL4)
+student_background <- select(tbl, INC_PCT_LO:IND_INC_AVG, loan_ever:fsend_5)
+
+slim <- select(tbl, Year, INSTNM, CITY, md_earn_wne_p10:pct90_earn_wne_p10,  STABBR, PREDDEG, HIGHDEG, CONTROL, st_fips, region, LOCALE, locale2, CCBASIC, C150_L4_POOLED_SUPP:C200_4_POOLED_SUPP, ADM_RATE:SAT_AVG_ALL, PCIP01:PCIP54, DISTANCEONLY, CURROPER, UGDS, UG, COSTT4_A:TUITIONFEE_PROG, TUITFTE:PFTFAC, DEBT_MDN:WDRAW_DEBT_MDN, CUML_DEBT_P90:CUML_DEBT_P10, RET_FT4:RET_PTL4)
+slim <- collect(slim)
+
+current_colnames <- colnames(slim)
+
+for(i in 1:length(current_colnames)) {
+  location <- which(data_dictionary$VARIABLE.NAME == current_colnames[i])
+  if(length(location) == 0) {next}
+  new_name <- as.character(data_dictionary[location, 4])
+  if(new_name != "") {current_colnames[i] <- new_name}
+}
+current_colnames <- make.names(current_colnames, unique = TRUE)
+colnames(slim) <- current_colnames
+
+slim_2011 <- slim %>% filter(Year == 2011, !is.na(X10_yrs_after_entry.median), X10_yrs_after_entry.median > 0,
+                             state %in% c("AL", "AK", "AZ", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "AR", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"))
+
+state_earnings <- slim_2011 %>% 
+                    select(median_earnings = X10_yrs_after_entry.median, 
+                           p25_earnings = pct25_earn_wne_p10,
+                           p75_earnings = pct75_earn_wne_p10,
+                           state)
+
+# The palette with grey:
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# The palette with black:
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+#what are the student characteristics in the data set
+#special_flags <- select(tbl, HBCU:WOMENONLY)
+#religious_aff <- select(tbl, RELAFFIL)
+#admissions_information <- select(tbl, ADM_RATE:SAT_AVG_ALL)
+#degree_breakdown <- select(tbl, PCIP01:PCIP54)
+#ug_body <- select(tbl, UGDS:PPTUG_EF2)
+#operating <- select(tbl, CURROPER)
+#net price by family income bracket select(NPT4_PUB:NP4_75UP_OTHER)
+#the 'netflix' school recommender
+
+#retention, completion, transfer rate stats increase associated "costs" but not needed in a first pass
+#debt, repayment ability
+
+#product approach: as a student where do I apply
+#academic approach: what features of a school predict higher future earnings
+```
+
+### An introduction to the problem:
+
+You're a high school student who has heard it repeated that getting a **university degree** is the key to a better career. Maybe you have your SAT/ACT scores in, your recommendations are ready to be sent off, and you've practiced writing admission essays until the sentence "University XYZ is the dream school for me because..." has you convinced that dreams are invented and not experienced. Or maybe you're an adult looking to pursue more education to either further your current career or to shift careers all together. How do you choose?
+
+Some variation of this problem faces every person who considers university, and there are no easy answers for them. There are a vast amount of different motivations that drive someone to pursuing a university degree. For a student out of high school it might be the more amorphous **college experience** they are after. For a returning adult, it could be about career as much as providing a rolemodel for their community. Thus, the problem is not to uniformly find the best fit university for every individual.
+
+What we can hope to offer these individuals is a more complete understanding of the future implications of their decisions. Thus, we return to what has been endlessly repeated, that university is the key to a better career. Studies do suggest attending *a* university is predictive of higher median earnings later in life, but can we do better?
+
+Can we help them decide *which* universities have worked out for students similar to them? Can we help an individual decide what's more likely to be the best investment of time and money for him or her?
+
+### The Problem
+
+An individual considering a university degree needs reliable information about what that degree will do for them. We focus here on the earnings aspect of that question and seek to understand how an individual can reliably maximize their return on investment from earning an advanced degree.
+
+### A solution to this problem should:
+
+1. Give information about what features of a university can help improve their future earning potential.
+2. Help an individual make a decision about which university program is best for them.
+3. Provide an individual with increased confidence in their choice of university.
+
+### A deeper dive into the data set:
+
+The database loads initially loads in with 124699 rows with 1731 columns. Each row corresponds to reported figures from a school in a particular year. The columns can mostly be viewed as being part of the following larger categories:
+
+*General Descriptive Information, including:
+  +Name
+  +Location
+  +School Type 
+*Programs Offered
+*Admissions
+*Cost
+*Student Body
+*Financial Aid
+*Completion
+*Future Earnings
+*Loan Repayment
+
+####What important fields and information does the data set have?
+
+Our focus as a dependent variable for this study will be the earnings data which is given a variety of different forms. In this data, preference will be given to the 10 year median earning data and that should give the most reliable estimate of future earnings from that school. Further, though we don't have median calculations, we do have limited mean earnings data for some demographic groups, like gender and financial dependent status.
+
+Since we're considering this as a full investment, we will have to take into account other factors which lessen the expected value of investment. We need to closely at the overall cost of the university degree, and not just its tuition fees. Completion rates are a very important variable to consider, as well as loans and the ability of students to repay those loans after attending.
+
+On this we'll have the very unrefined relationship of 
+
+value of the degree = earnings - costs
+
+Admissions data will be useful to attempt to draw some conclusions about what degree programs might be useful for a particular kind of student. This allows us to make the previous formula respond to a student's particular circumstances and recommend what might be best for them, not just what is generally best.
+
+####What are its limitations i.e. what are some questions that cannot be answered with this data set?
+
+Due to the data being on school-level, it'll be harder to achieve granular analysis. For example, there is likely to be a large difference in potential earnings between someone pursuing an Engineering degree and someone pursuing an English degree at the same university.
+
+This data is further limited in that it isn't built on every student but is limited to students who receive federal grants and loans. 
+
+####What kind of cleaning and wrangling was performed?
+
+The data set is far too large to load into R, so it must be accessed through a database connection. Even more though, it simply has too many variables for initial exploration of the data, thus the working dataset needs to be made considerably smaller.
+
+Also, the names of variables in the database are not entirely intuitive. Luckily, the data does come with a data dictionary which provides "developer friendly names" for some variables. Those which have them were renamed. 
+
+The Carnegie classification provides information about the type of program at that university, but that classification data is only given for the row corresponding to the year 2013 of a school. This presents a problem since 10 year median earning data is not yet available for 2013, and so we have to fill in this classification data when we are considering subsets by year.
+
+###Preliminary Exploration
+
+To acclimate to the dataset, we'll discuss some visualizations of the data. As the endgoal is building a product which helps direct students to the best deal for them, our main focus is exploring the future student earnings of a school for different student segments.
+
+```{r, echo = FALSE, eval = TRUE, warning = FALSE}
+
+#can this difference be explained by income in the state alone?
+#or are schools noticeably better in certain states?
+
+with_median <- state_earnings %>% group_by(state) %>% summarise(median_median = median(median_earnings))
+state_earnings <- mutate(state_earnings, median_median = 0)
+for(i in 1:nrow(with_median)) {
+  state_earnings$median_median[state_earnings$state == with_median[[i,1]]] <- with_median[[i,2]]
+}
+state_earnings <- state_earnings %>% arrange(median_median)
+
+ggplot(aes(x = state), data = state_earnings) +
+  geom_boxplot(aes(y = median_earnings, fill=cbPalette[2])) +
+  scale_y_continuous(limits=c(0, 100000)) +
+  scale_x_discrete(limits=unique(state_earnings$state)) +
+  guides(fill=FALSE)
+
+```
+
+```{r, echo=FALSE, eval=TRUE, warning=FALSE}
+
+cor(slim$act_scores.midpoint.cumulative, slim$sat_scores.average.overall, use="complete.obs")
+
+#carnegie <- slim %>% filter(Year == 2013) %>% select(name, carnegie_basic)
+
+act_earnings <- slim_2011 %>%
+  select(Year, earnings = X10_yrs_after_entry.median, act = act_scores.midpoint.cumulative, name, state) %>%
+  filter(!is.na(act), act > 0)
+
+with_median <- act_earnings %>% group_by(act) %>% summarise(median_median = median(earnings))
+act_earnings <- mutate(act_earnings, median_median = 0)
+for(i in 1:nrow(with_median)) {
+  act_earnings$median_median[act_earnings$act == with_median[[i,1]]] <- with_median[[i,2]]
+}
+act_earnings <- act_earnings %>% arrange(median_median)
+
+act_earnings$act <- as.factor(act_earnings$act)
+
+ggplot(aes(x = act), data = act_earnings) +
+  geom_boxplot(aes(y = earnings, fill=cbPalette[2])) +
+  scale_y_continuous(limits=c(0, 100000)) +
+  scale_x_discrete(limits=unique(act_earnings$act)) +
+  guides(fill=FALSE)
+
+table(act_earnings$state)
+act_earnings_PA <- filter(act_earnings, state == "PA")
+with_median <- act_earnings_PA %>% group_by(act) %>% summarise(median_median = median(earnings))
+act_earnings_PA <- mutate(act_earnings_PA, median_median = 0)
+for(i in 1:nrow(with_median)) {
+  act_earnings_PA$median_median[act_earnings_PA$act == with_median[[i,1]]] <- with_median[[i,2]]
+}
+act_earnings_PA <- arrange(act_earnings_PA, median_median)
+
+ggplot(aes(x = act), data = act_earnings_PA) +
+  geom_boxplot(aes(y = earnings)) +
+  scale_y_continuous(limits=c(0, 100000)) +
+  scale_x_discrete(limits=unique(act_earnings_PA$act)) +
+  guides(fill=FALSE)
+
+10_yrs_after_entry.mean_earnings.independent_student
+mn_earn_wne_indep1_p1
+
+
+ind_earnings <- collect(select(tbl, Year, state = STABBR, earnings = mn_earn_wne_indep1_p10) %>% filter(!is.na(earnings), earnings > 0, Year == 2011))
+ind_earnings <- filter(ind_earnings, earnings > 0)
+
+with_median <- ind_earnings %>% group_by(state) %>% summarise(median_median = median(earnings))
+ind_earnings <- mutate(ind_earnings, median_mean = 0)
+for(i in 1:nrow(with_median)) {
+  ind_earnings$median_mean[ind_earnings$state == with_median[[i,1]]] <- with_median[[i,2]]
+}
+ind_earnings <- ind_earnings %>% arrange(median_mean)
+
+ggplot(aes(x = state), data = ind_earnings) +
+  geom_boxplot(aes(y = earnings)) +
+  scale_x_discrete(limits=unique(ind_earnings$state)) +
+  guides(fill=FALSE)
+```
+
+###What approach to building a final product do the preliminary findings suggest?
+
