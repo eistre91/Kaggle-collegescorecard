@@ -2,3 +2,13 @@
 ######################
 *.sqlite
 *.csv
+*.sav
+
+# Compressed Files #
+######################
+*.zip
+
+# Specifics #
+######################
+Oct08Mobility_Que.doc
+Oct08Mobility_Methodology.doc
