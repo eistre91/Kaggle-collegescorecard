@@ -1,0 +1,110 @@
+---
+title: "TechnicalLog"
+author: "Erik Istre"
+date: "December 29, 2015"
+output: html_document
+---
+
+This document is primarily a reference for the developer to record the outcomes of different methods of analysis whether these analyses prove useful for the final product or not.
+
+The dataset of interest was provided for a Kaggle competition by the US Department of Education to explore the relationship between university costs and eventual earnings. Each row (observation) in the dataset is reported information from a school for a particular year forming the columns (variables). Thus, schools will appear multiple times for each year for which data was collected from them.
+
+```{r, warning=FALSE, message=FALSE}
+setwd("C:/Kaggle-collegescorecard/")
+library(ggplot2)
+library(dplyr)
+library(RSQLite)
+library(gridExtra)
+
+my_db <- src_sqlite("database.sqlite")
+tbl <- tbl(my_db, "Scorecard")
+data_dictionary <- read.csv("CollegeScorecardDataDictionary-09-12-2015.csv")
+```
+
+When first faced with the data set, it became apparent that it was too large, at 124699 observations and 1731 variables, to reliably approach with my still developing data science abilities and my limited domain knowledge. The data set at this size is also far too large to work with in local memory, and requires establishing a connection to the provided SQLite database as above.
+
+From there I set about reading through the provided data dictionary documentation which outlined each of the variables and what they were. From there I cut out variables that, while potentially useful for an "optimal" solution, seemed like distractions for a first-pass and an alpha level product. For the initial paring down, rather than collecting the variables in one long (dplyr) select statement, I opted for more memory overhead to increase readability of the code by separating out distinct select statements and saving the resulting selections to descriptive variable names. The "long" select statement is in the next section code.
+
+```{r}
+earnings <- select(tbl, contains("_p10"), -CUML_DEBT_P10)
+completion_rates <- select(tbl, C150_4_POOLED, C150_L4_POOLED, C200_4_POOLED, C200_L4_POOLED,
+                                C150_4_POOLED_SUPP, C150_L4_POOLED_SUPP, C200_4_POOLED_SUPP, C200_L4_POOLED_SUPP)
+retention_rates <- select(tbl, RET_FT4:RET_PTL4)
+first_full_time <- select(tbl, PFTFTUG1_EF)
+part_time <- select(tbl, PPTUG_EF)
+enrollment <- select(tbl, UGDS)
+adult_students <- select(tbl, UG25abv)
+degree_breakdown <- select(tbl, PCIP01:PCIP54)
+carnegie_classes <- select(tbl, CCBASIC:CCSIZSET)
+cost <- select(tbl, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG)
+school_business <- select(tbl, TUITFTE:PFTFAC)
+descriptive_information <- select(tbl, UNITID:LONGITUDE, Year)
+admission_rate <- select(tbl, ADM_RATE)
+test_scores <- select(tbl, SATVR25:SAT_AVG)
+federal_aid_percent <- select(tbl, PCTFLOAN, PCTPELL)
+debt_medians <- select(tbl, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN)
+operating <- select(tbl, CURROPER)
+online <- select(tbl, DISTANCEONLY)
+```
+
+Now that I have chosen a much smaller selection of the variables, it's possible to "collect" the data frame into local memory which makes future manipulation a bit easier to handle.
+
+```{r}
+trim <- select(tbl, contains("_p10"), -CUML_DEBT_P10, C150_4_POOLED, C150_L4_POOLED, C200_4_POOLED, C200_L4_POOLED, C150_4_POOLED_SUPP, C150_L4_POOLED_SUPP, C200_4_POOLED_SUPP, C200_L4_POOLED_SUPP, RET_FT4:RET_PTL4, PFTFTUG1_EF, PPTUG_EF, UGDS, UG25abv, PCIP01:PCIP54, CCBASIC:CCSIZSET, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG, TUITFTE:PFTFAC, UNITID:LONGITUDE, Year, ADM_RATE, SATVR25:SAT_AVG, PCTFLOAN, PCTPELL, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN, CURROPER, DISTANCEONLY)
+
+trim <- collect(trim)
+```
+
+The first thing that the collection allows is an easy renaming of column names using the provided "developer friendly names" in the data dictionary that accompanies the database. The next bit of code does not work if the database was not collected, and I did attempt a more complicated method to rename the entire dataset before opting to collect and then rename.
+
+```{r}
+current_colnames <- colnames(trim)
+
+for(i in 1:length(current_colnames)) {
+  location <- which(data_dictionary$VARIABLE.NAME == current_colnames[i])
+  if(length(location) == 0) {next}
+  new_name <- as.character(data_dictionary[location, 4])
+  if(new_name != "") {current_colnames[i] <- new_name}
+}
+current_colnames <- make.names(current_colnames, unique = TRUE)
+colnames(trim) <- current_colnames
+```
+
+For the state column of the dataset, it contains abbreviations for U.S. territories like Puerto Rico. This is outside the main area of interest for this analysis, and so I exclude the extra state codings, including the 48 contiguous states, Alaska, Haiwaii, and DC (even though it isn't a state).
+
+```{r}
+trim <- trim %>% filter(state %in% c("AL", "AK", "AZ", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "AR", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"))
+```
+
+Some further wrangling that needs to be done is on the carnegie_basic variable which provides a classification system for the type of the schools in the dataset. This variable is only given a value on the 2013 observations. Assuming that this classification remains stable enough not to skew the analysis, I propagate the value of this variable to fill NA values where possible.
+
+```{r}
+carnegie <- trim %>% filter(Year == 2013) %>% select(name, carnegie_basic)
+
+for(id in 1:nrow(carnegie)) {
+  trim$carnegie_basic[trim$name %in% carnegie$name[id]] <- carnegie$carnegie_basic[id]
+}
+```
+
+The Carnegie basic classification allows us to know a little bit more about a school in ways that are useful to our analysis. For instance, we can remove law schools and medical schools which might skew our analysis of everything else.
+
+```{r}
+normal <- filter(trim, !grepl("special", ignore.case = TRUE, carnegie_basic))
+```
+
+This completes the initial wrangling pass. More wrangling is necessary later, but this is much more context dependent, e.g. remove NA's of 10 year median earnings so that we can have a nice plot.
+
+The next thing I did was to explore the data set with a variety of plots. In this process I made use of two color blind friendly palettes that I found. 
+
+```{r}
+# The palette with grey:
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# The palette with black:
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+
+Attempt to build a simple linear regression model fails due to the presence of a lot of NA's with primarily ACT/SAT data but also with other variables.
+
+Attempt to control the differences in 10 year earnings between states by controlling for cost of living index. Brought in a database to determine mobility of people with college degrees. Mobility seems too high reliably apply cost of living index to normalize incomes across states. What explains the difference in states vs eventual income? Perhaps cost of living is enough to account for some of the difference. How much of the variance in the income between states is explained by cost of living? A tight correlation between cost of living and income in state might still be useful.
