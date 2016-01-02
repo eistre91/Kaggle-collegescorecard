@@ -47,6 +47,8 @@ operating <- select(tbl, CURROPER)
 online <- select(tbl, DISTANCEONLY)
 ```
 
+The future earnings in the dataset is given at a variety of time increments, e.g. 6 years from graduation and 10 years from graduation. I've opted to focus only on the 10 year data in the interest of making the analysis more manageable, and with the hope that 10 years better represents the "true" average of eventual earnings. Further, these 10 year figures were gathered in select years, and I'll be focusing on the three most recent samplings, from Year 2007, 2009, 2011.
+
 Now that I have chosen a much smaller selection of the variables, it's possible to "collect" the data frame into local memory which makes future manipulation a bit easier to handle.
 
 ```{r}
@@ -92,7 +94,7 @@ The Carnegie basic classification allows us to know a little bit more about a sc
 normal <- filter(trim, !grepl("special", ignore.case = TRUE, carnegie_basic))
 ```
 
-This completes the initial wrangling pass. More wrangling is necessary later, but this is much more context dependent, e.g. remove NA's of 10 year median earnings so that we can have a nice plot.
+This completes the initial wrangling pass. More wrangling is necessary later, but this is much more context dependent, e.g. remove NA's of 10 year median earnings so that we can have a nice plot. 
 
 The next thing I did was to explore the data set with a variety of plots. In this process I made use of two color blind friendly palettes that I found. 
 
@@ -104,7 +106,68 @@ cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
+The first plot explored the relationship between the state the school was in and earnings. I'll collect up the years I'm using for the analysis first and then produce the plot.
 
-Attempt to build a simple linear regression model fails due to the presence of a lot of NA's with primarily ACT/SAT data but also with other variables.
+```{r}
+ten <- trim %>% filter(Year %in% c(2007, 2009, 2011))
+ten_earnings <- ten %>% filter(!is.na(X10_yrs_after_entry.median), X10_yrs_after_entry.median > 0)
 
-Attempt to control the differences in 10 year earnings between states by controlling for cost of living index. Brought in a database to determine mobility of people with college degrees. Mobility seems too high reliably apply cost of living index to normalize incomes across states. What explains the difference in states vs eventual income? Perhaps cost of living is enough to account for some of the difference. How much of the variance in the income between states is explained by cost of living? A tight correlation between cost of living and income in state might still be useful.
+state_earnings <- ten_earnings %>% 
+                    select(median_earnings = X10_yrs_after_entry.median, 
+                           p25_earnings = pct25_earn_wne_p10,
+                           p75_earnings = pct75_earn_wne_p10,
+                           state)
+
+with_median <- state_earnings %>% group_by(state) %>% summarise(median_median = median(median_earnings))
+state_earnings <- mutate(state_earnings, median_median = 0)
+for(i in 1:nrow(with_median)) {
+  state_earnings$median_median[state_earnings$state == with_median[[i,1]]] <- with_median[[i,2]]
+}
+state_earnings <- state_earnings %>% arrange(median_median)
+
+ggplot(aes(x = state), data = state_earnings) +
+  geom_boxplot(aes(y = median_earnings, fill=cbPalette[2])) +
+  scale_y_continuous(limits=c(0, 100000)) +
+  scale_x_discrete(limits=unique(state_earnings$state)) +
+  guides(fill=FALSE)
+```
+
+This plot is arranged by the median of the median 10 year earnings. DC is an obvious outlier in it's distribution of earnings.
+
+This plot suggests discovering whether the difference in 10 year earnings is simply due to differences in cost of living (e.g. DC is expensive to live and drives incomes higher) or whether there may be some more fundamental difference going on between states. One way to determine this might be normalizing by cost of living. This analysis isn't perfect though. There is a large degree of mobility (mobility.R) among college graduates, and I couldn't find a dataset to nail down the proportions of people moving for school and then staying the state they go to school for, or people moving post graduation. 
+
+However, if I rephrase the question to be "how much of the variance in median earnings is explained by differences in cost of living", I might still gather some insight. Thus we need a dataset which gives cost of living indexes for the different states (and DC).
+
+```{r}
+relative <- read.csv("relativevalue.csv", skipNul = TRUE)
+colnames(relative) <- c("state", "relative")
+
+state_earnings <- state_earnings %>% mutate(relative_value = 0)
+for(i in 1:nrow(with_median)) {
+  state_earnings$relative_value[state_earnings$state == relative[[i,1]]] <- relative[[i,2]]
+}
+
+state_earnings <- state_earnings %>% mutate(adjusted_earnings = (median_earnings/1000)*(relative_value/100))
+
+with_median <- state_earnings %>% group_by(state) %>% summarise(median_adjusted = median(adjusted_earnings))
+state_earnings <- mutate(state_earnings, median_adjusted = 0)
+for(i in 1:nrow(with_median)) {
+  state_earnings$median_adjusted[state_earnings$state == with_median[[i,1]]] <- with_median[[i,2]]
+}
+state_earnings <- state_earnings %>% arrange(median_adjusted)
+
+ggplot(aes(x = state), data = state_earnings) +
+  geom_boxplot(aes(y = adjusted_earnings, fill=cbPalette[2])) +
+  scale_y_continuous(limits=c(20,50)) +
+  scale_x_discrete(limits=unique(state_earnings$state)) +
+  guides(fill=FALSE)
+
+#the scale is skewing the medians for some states
+#should shift to the coord_trans zoom
+```
+
+Another bit of code that I tried to get working, but ultimately found to be a lot more difficult, was building a "simple" linear regression model. I was hoping to something rudimentary up and running with a few variables to get an idea of what might be strongly predictive of higher later earnings. However, I quickly ran into issues with the amounts of NAs present in this dataset. 
+
+I was particularly curious about the relationship between SAT/ACT scores and eventual earnings, but there are quite a few schools in the dataset that haven't reported this information, and this made the analysis with these difficult and unreliable. 
+
+I had also planned to train on years 2007, 2009 and then test on 2011, which only further limited the available data once NAs were accounted for. At this time, the attempt to build a linear regression model has been put on hold.
