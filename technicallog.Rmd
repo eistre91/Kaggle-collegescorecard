@@ -171,3 +171,22 @@ Another bit of code that I tried to get working, but ultimately found to be a lo
 I was particularly curious about the relationship between SAT/ACT scores and eventual earnings, but there are quite a few schools in the dataset that haven't reported this information, and this made the analysis with these difficult and unreliable. 
 
 I had also planned to train on years 2007, 2009 and then test on 2011, which only further limited the available data once NAs were accounted for. At this time, the attempt to build a linear regression model has been put on hold.
+
+Attempting K-means clustering on percentages of degrees.
+
+```{r}
+degree_breakdown <- collect(degree_breakdown)
+degree_breakdown_filter <- trim %>% select(contains("program_percentage")) %>% filter(!is.na(program_percentage.agriculture))
+
+KMC <- kmeans(degree_breakdown_filter, centers=9, iter.max=1000)
+
+SumWithinss = sapply(2:10, 
+                     function(x) 
+                       sum(kmeans(degree_breakdown_filter, centers=x, iter.max=1000)$withinss))
+
+plot(2:10, SumWithinss, type="b")
+
+#need at least 4 clusters.
+#another relatively sharp decrease from 8 to 9 clusters, and then
+#an increase to 10 
+```
