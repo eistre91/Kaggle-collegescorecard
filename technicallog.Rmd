@@ -166,6 +166,33 @@ ggplot(aes(x = state), data = state_earnings) +
 #should shift to the coord_trans zoom
 ```
 
+Can state earnings differences be explained by the "prestige" of schools present? If we use admission rate as a measure of that quality, do we see large differences between states?
+
+```{r}
+state_prestige <- select(ten_earnings, state, admission_rate.overall, X10_yrs_after_entry.median)
+state_prestige$state <- as.factor(state)
+
+state_prestige_rm <- filter(state_prestige, !is.na(admission_rate.overall))
+with_median <- state_prestige_rm %>% group_by(state) %>% summarise(median_adm = median(admission_rate.overall))
+state_prestige_rm <- mutate(state_prestige_rm, median_adm = 0)
+for(i in 1:nrow(with_median)) {
+  state_prestige_rm$median_adm[state_prestige_rm$state == with_median[[i,1]]] <- with_median[[i,2]]
+}
+state_prestige_rm <- state_prestige_rm %>% arrange(median_adm)
+
+#normalize incomes by 95% percentile
+quantile(state_prestige_rm$X10_yrs_after_entry.median, prob=.95)
+state_prestige_rm <- mutate(state_prestige_rm, 
+                            normalized_earnings = X10_yrs_after_entry.median/quantile(state_prestige_rm$X10_yrs_after_entry.median, prob=.95))
+
+ggplot(state_prestige_rm, aes(x = state)) +
+  geom_boxplot(aes(y = admission_rate.overall, fill=cbPalette[2])) +
+  scale_x_discrete(limits=unique(state_prestige_rm$state)) +
+  geom_boxplot(aes(y= normalized_earnings, fill=cbPalette[3]))
+
+cor(state_prestige$admission_rate.overall, state_prestige$X10_yrs_after_entry.median, use="complete.obs")
+```
+
 Another bit of code that I tried to get working, but ultimately found to be a lot more difficult, was building a "simple" linear regression model. I was hoping to something rudimentary up and running with a few variables to get an idea of what might be strongly predictive of higher later earnings. However, I quickly ran into issues with the amounts of NAs present in this dataset. 
 
 I was particularly curious about the relationship between SAT/ACT scores and eventual earnings, but there are quite a few schools in the dataset that haven't reported this information, and this made the analysis with these difficult and unreliable. 
