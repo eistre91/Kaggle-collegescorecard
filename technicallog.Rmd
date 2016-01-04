@@ -175,10 +175,10 @@ I had also planned to train on years 2007, 2009 and then test on 2011, which onl
 Attempting K-means clustering on percentages of degrees.
 
 ```{r}
-degree_breakdown <- collect(degree_breakdown)
-degree_breakdown_filter <- trim %>% select(contains("program_percentage")) %>% filter(!is.na(program_percentage.agriculture))
+#degree_breakdown <- collect(degree_breakdown)
+degree_breakdown_filter <- ten_earnings %>% select(contains("program_percentage")) %>% filter(!is.na(program_percentage.agriculture))
 
-KMC <- kmeans(degree_breakdown_filter, centers=9, iter.max=1000)
+program_clusters <- kmeans(degree_breakdown_filter, centers=9, iter.max=1000)
 
 SumWithinss = sapply(2:10, 
                      function(x) 
@@ -189,4 +189,90 @@ plot(2:10, SumWithinss, type="b")
 #need at least 4 clusters.
 #another relatively sharp decrease from 8 to 9 clusters, and then
 #an increase to 10 
+
+ten_earnings_filter <- filter(ten_earnings, !is.na(program_percentage.agriculture))
+
+ten_earnings_filter$program_cluster <- program_clusters$cluster
+ten_earnings_filter$program_cluster <- as.factor(ten_earnings_filter$program_cluster)
+
+ggplot(aes(x = program_cluster), data = ten_earnings_filter) +
+  geom_boxplot(aes(y = X10_yrs_after_entry.median, fill=cbPalette[2])) +
+  scale_y_continuous(limits=c(0, 100000)) +
+  scale_x_discrete(limits=unique(ten_earnings_filter$program_cluster)) +
+  guides(fill=FALSE)
+
+#filter(carnegie_class_2013, !grepl("special", ignore.case = TRUE, carnegie_class))
+
+filter(ten_earnings_filter, !grepl("beauty", ignore.case = TRUE, name), 
+                            !grepl("hair", ignore.case = TRUE, name),
+                            !grepl("cosmetology", ignore.case = TRUE, name),
+                            !grepl("culinary", ignore.case = TRUE, name),
+                            !grepl("funeral", ignore.case = TRUE, name),
+                            !grepl("restaurant", ignore.case = TRUE, name),
+                            !grepl("mortuary", ignore.case = TRUE, name),
+                            !grepl("special", ignore.case = TRUE, carnegie_basic),
+                            !is.na(carnegie_basic),
+       program_cluster==7)$name
+
+ten_earnings_filter <- filter(ten_earnings_filter, !grepl("beauty", ignore.case = TRUE, name), 
+                            !grepl("hair", ignore.case = TRUE, name),
+                            !grepl("cosmetology", ignore.case = TRUE, name),
+                            !grepl("culinary", ignore.case = TRUE, name),
+                            !grepl("funeral", ignore.case = TRUE, name),
+                            !grepl("restaurant", ignore.case = TRUE, name),
+                            !grepl("mortuary", ignore.case = TRUE, name),
+                            !grepl("special", ignore.case = TRUE, carnegie_basic),
+                            !grepl("the art institute", ignore.case = TRUE, name),
+                            !grepl("media", ignore.case = TRUE, name),
+                            !is.na(carnegie_basic))
+
+degree_breakdown_filter <- ten_earnings_filter %>% select(contains("program_percentage"))
+SumWithinss = sapply(2:10, 
+                     function(x) 
+                       sum(kmeans(degree_breakdown_filter, centers=x, iter.max=1000)$withinss))
+plot(2:10, SumWithinss, type="b")
+program_clusters <- kmeans(degree_breakdown_filter, centers=7, iter.max=1000)
+ten_earnings_filter$program_cluster <- program_clusters$cluster
+ten_earnings_filter$program_cluster <- as.factor(ten_earnings_filter$program_cluster)
+
+filter(ten_earnings_filter, program_cluster==1)$carnegie_basic
+
+ggplot(aes(x = program_cluster), data = ten_earnings_filter) +
+  geom_boxplot(aes(y = X10_yrs_after_entry.median, fill=cbPalette[2])) +
+  scale_y_continuous(limits=c(0, 100000)) +
+  scale_x_discrete(limits=unique(ten_earnings_filter$program_cluster)) +
+  guides(fill=FALSE)
+
+#3 is a pretty balanced cluster
+#5 has a high concentration of business/marketing schools
+#7 has medium concentration of business and medium education
+#6 has a high concentration of humanities schools
+#2 has humanities, business/marketing, health
+#1 has health
+#4 has mechanic, engineering technology schools
+
+ten_earnings_filter <- filter(ten_earnings_filter,
+                            !grepl("the art institute", ignore.case = TRUE, name),
+                            !grepl("media", ignore.case = TRUE, name),
+                            !is.na(carnegie_basic))
+
+degree_breakdown_filter <- ten_earnings_filter %>% select(contains("program_percentage"))
+SumWithinss = sapply(2:10, 
+                     function(x) 
+                       sum(kmeans(degree_breakdown_filter, centers=x, iter.max=1000)$withinss))
+plot(2:10, SumWithinss, type="b")
+program_clusters <- kmeans(degree_breakdown_filter, centers=7, iter.max=1000)
+ten_earnings_filter$program_cluster <- program_clusters$cluster
+ten_earnings_filter$program_cluster <- as.factor(ten_earnings_filter$program_cluster)
+
+filter(ten_earnings_filter, program_cluster==1)$name
+program_clusters$centers[1,]
+sum(grepl("associate's", ignore.case=TRUE, filter(ten_earnings_filter, program_cluster==1)$carnegie_basic))/length(filter(ten_earnings_filter, program_cluster==1)$carnegie_basic)
+#program_cluster 1 is 91.4% associate's degree granting institutions
+
+ggplot(aes(x = program_cluster), data = ten_earnings_filter) +
+  geom_boxplot(aes(y = X10_yrs_after_entry.median, fill=cbPalette[2])) +
+  scale_y_continuous(limits=c(0, 100000)) +
+  scale_x_discrete(limits=unique(ten_earnings_filter$program_cluster)) +
+  guides(fill=FALSE)
 ```
