@@ -37,10 +37,11 @@ colnames(trim) <- current_colnames
 
 trim <- trim %>% filter(state %in% c("AL", "AK", "AZ", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "AR", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"))
 
-carnegie <- trim %>% filter(Year == 2013) %>% select(name, carnegie_basic)
+fill_in <- trim %>% filter(Year == 2013) %>% select(name, carnegie_basic, )
 
-for(id in 1:nrow(carnegie)) {
-  trim$carnegie_basic[trim$name %in% carnegie$name[id]] <- carnegie$carnegie_basic[id]
+for(id in 1:nrow(fill_in)) {
+  trim$carnegie_basic[trim$name %in% fill_in$name[id]] <- fill_in$carnegie_basic[id]
+  trim$
 }
 #scale_colour_colorblind
 #scale_colour_few
@@ -172,4 +173,8 @@ ten_earnings_filter <- filter(ten_earnings, !grepl("beauty", ignore.case = TRUE,
                             !is.na(carnegie_basic))
 
 cor(ten_earnings_filter$X10_yrs_after_entry.median, ten_earnings_filter$admission_rate.overall, use="complete.obs")
+```
+
+```{r}
+
 ```

@@ -337,6 +337,12 @@ ggplot(aes(x = program_cluster), data = ten_earnings_filter) +
   guides(fill=FALSE)
 ```
 
+```{r}
+cor(ten_earnings$X10_yrs_after_entry.median, ten_earnings$admission_rate.overall, use="complete.obs")
+cor(state_earnings$admission_rate.overall, state_earnings$adjusted_earnings, use="complete.obs")
+cor(ten_earnings_filter$X10_yrs_after_entry.median, ten_earnings_filter$admission_rate.overall, use="complete.obs")
+```
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Rural vs urban schools?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
