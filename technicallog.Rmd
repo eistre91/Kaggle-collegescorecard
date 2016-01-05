@@ -188,6 +188,11 @@ ggplot(aes(x = state), data = state_earnings) +
 #the scale is skewing the medians for some states
 #should shift to the coord_trans zoom
 
+
+cor(relative$relative, state_earnings$median_earnings)
+
+cor(trim$admission_rate.overall, trim$X10_yrs_after_entry.median, use="complete.obs")
+
 #the sd does decrease between the two measures, so I've controlled for some degree of the differences in the states
 sd(state_earnings$median_median)
 sd(state_earnings$median_adjusted)
