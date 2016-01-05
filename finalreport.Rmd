@@ -1,8 +1,126 @@
 ---
-title: "FinalReport"
+title: "A Data-driven Approach to School Selection"
 author: "Erik Istre"
 date: "January 3, 2016"
 output: html_document
 ---
 
+```{r}
+library(ggplot2)
+library(ggthemes)
+library(dplyr)
+library(RSQLite)
+library(gridExtra)
+
+my_db <- src_sqlite("database.sqlite")
+tbl <- tbl(my_db, "Scorecard")
+data_dictionary <- read.csv("CollegeScorecardDataDictionary-09-12-2015.csv")
+
+theme_set(theme_few())
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+trim <- select(tbl, contains("_p10"), -CUML_DEBT_P10, C150_4_POOLED, C150_L4_POOLED, C200_4_POOLED, C200_L4_POOLED, C150_4_POOLED_SUPP, C150_L4_POOLED_SUPP, C200_4_POOLED_SUPP, C200_L4_POOLED_SUPP, PFTFTUG1_EF, PPTUG_EF, UGDS, UG25abv, PCIP01:PCIP54, CCBASIC:CCSIZSET, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG, TUITFTE:PFTFAC, UNITID:LONGITUDE, Year, ADM_RATE, SATVR25:SAT_AVG, PCTFLOAN, PCTPELL, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN, CURROPER, DISTANCEONLY, COMP_ORIG_YR2_RT:ENRL_2YR_TRANS_YR2_RT, COMP_ORIG_YR3_RT:ENRL_2YR_TRANS_YR3_RT, COMP_ORIG_YR4_RT:ENRL_2YR_TRANS_YR4_RT, COMP_ORIG_YR6_RT:ENRL_2YR_TRANS_YR6_RT, COMP_ORIG_YR8_RT:ENRL_2YR_TRANS_YR8_RT )
+
+trim <- collect(trim)
+
+current_colnames <- colnames(trim)
+
+for(i in 1:length(current_colnames)) {
+  location <- which(data_dictionary$VARIABLE.NAME == current_colnames[i])
+  if(length(location) == 0) {next}
+  new_name <- as.character(data_dictionary[location, 4])
+  if(new_name != "") {current_colnames[i] <- new_name}
+}
+current_colnames <- make.names(current_colnames, unique = TRUE)
+colnames(trim) <- current_colnames
+
+trim <- trim %>% filter(state %in% c("AL", "AK", "AZ", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "AR", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"))
+
+#scale_colour_colorblind
+#scale_colour_few
+#scale_fill_few
+```
+
+Whether you're a student fresh from high school or an adult looking to go back to school to learn a new skill, making the right school choice can be daunting. Each school will promise you that they are the best option for your future career prospects. And each school will do its best to assure you that the cost to attend that school will be outweighed by your future success. How do you know if you're making the right choice when you hear the same thing from every school?
+
+The Department of Education must have had the same question when they released the College Scorecard dataset([Data](https://collegescorecard.ed.gov/data/)). In their own words:
+
+"The College Scorecard project is designed to increase transparency, putting the power in the hands of students and families to compare colleges and see how well schools are preparing their students to be successful."
+
+This dataset offers us a concrete measure of graduate's future success: how successful are they in their future careers? I'll guide us through the dataset and at the end of it all provide you with a tool to explore your options. This will not exhaust the dataset or make up your mind for you, but I hope it'll make the choice a little less mysterious.
+
+Before we get to the analysis, it's important to note that a the entire college experience isn't reducible to future earnings. There's the complex tapestry of personal growth and social experience during college that can't be taken for granted. This analysis should be taken for what it is, an attempt to understand a single measurable aspect of this multi-faceted experience: how to choose to maximize your future earnings.
+
+### Where?
+
+First, where should your school be located? Where you attend school could have implications for what career connections you're able to make which will influence your initial career options. For example, if you want to work at a software startup in Silicon Valley, it's probably not as useful to go to a school in South Carolina. We'll focus specifically on a state level, considering the contiguous 48 states, Haiwaii, Alaska, and, additionally, the District of Columbia.
+
+We won't be able to find a precise answer to the best state to get a degree from. There a few complicating factors that are hard to control for. States that exhibit generally higher earnings for graduates might be due to that state having a higher cost of living. We can put the states on more equal footing by taking this into account using the relative value of the dollar in each state.([Tax Foundation Report](http://taxfoundation.org/blog/real-value-100-each-state)) 
+
+However, this isn't perfect since people with college degrees tend to have a considerable amount of geographic mobility. ([Pew Social Trends](http://www.pewsocialtrends.org/2008/12/17/who-moves-who-stays-put-wheres-home/)) We can't be sure that graduates are working in the state they got their degree and the College Scorecard dataset doesn't go into this. 
+
+Finally, it may be that states which exhibit higher than normal earnings do so because prestigious schools are clustered in that state. Thus it may not be that location matters so much as prestige of the schools and that's driving higher earnings.
+
+First, we'll look at the unfiltered data. 
+
+```{r}
+ten <- trim %>% filter(Year %in% c(2007, 2009, 2011))
+ten_earnings <- ten %>% filter(!is.na(X10_yrs_after_entry.median), X10_yrs_after_entry.median > 0)
+
+state_earnings <- ten_earnings %>% 
+                    select(median_earnings = X10_yrs_after_entry.median, 
+                           p25_earnings = pct25_earn_wne_p10,
+                           p75_earnings = pct75_earn_wne_p10,
+                           state)
+
+with_median <- state_earnings %>% group_by(state) %>% summarise(median_median = median(median_earnings))
+state_earnings <- mutate(state_earnings, median_median = 0)
+for(i in 1:nrow(with_median)) {
+  state_earnings$median_median[state_earnings$state == with_median[[i,1]]] <- with_median[[i,2]]
+}
+state_earnings <- state_earnings %>% arrange(median_median)
+
+ggplot(aes(x = state), data = state_earnings) +
+  geom_boxplot(aes(y = median_earnings, fill=cbPalette[2]), outlier.shape=NA, coef=0) +
+  scale_x_discrete(limits=unique(state_earnings$state)) +
+  guides(fill=FALSE) +
+  coord_flip(ylim=c(20000,60000))
+```
+
+Now what do this look like we if take into consideration the cost of living. First, we should determine if there is a relationship between the median earnings in a state and the cost of living. As we might expect, we find there's a moderate degree of correlation, well-exhibited by the plot:
+
+```{r}
+relative <- read.csv("relativevalue.csv", skipNul = TRUE)
+colnames(relative) <- c("state", "relative")
+relative <- inner_join(with_median, relative)
+
+ggplot(aes(x = relative, y = median_median), data=relative) + 
+  geom_point()
+```
+
+Now if we take this into account, we get a distinctly different plot.
+
+```{r}
+state_earnings <- state_earnings %>% mutate(relative_value = 0)
+for(i in 1:nrow(with_median)) {
+  state_earnings$relative_value[state_earnings$state == relative[[i,1]]] <- relative[[i,3]]
+}
+
+state_earnings <- state_earnings %>% mutate(adjusted_earnings = 0)
+state_earnings <- state_earnings %>% mutate(adjusted_earnings = (median_earnings)*(relative_value/100))
+
+with_median <- state_earnings %>% group_by(state) %>% summarise(median_adjusted = median(adjusted_earnings))
+state_earnings <- mutate(state_earnings, median_adjusted = 0)
+for(i in 1:nrow(with_median)) {
+  state_earnings$median_adjusted[state_earnings$state == with_median[[i,1]]] <- with_median[[i,2]]
+}
+state_earnings <- state_earnings %>% arrange(median_adjusted)
+
+ggplot(aes(x = state), data = state_earnings) +
+  geom_boxplot(aes(y = adjusted_earnings, fill=cbPalette[2]), outlier.shape=NA, coef=0) +
+  geom_boxplot(aes(y = median_earnings, fill=cbPalette[3]), alpha=0.5, outlier.shape=NA, coef=0) +
+  scale_x_discrete(limits=unique(state_earnings$state)) +
+  guides(fill=FALSE) +
+  coord_flip(ylim=c(15000,75000))
+```
 

@@ -15,8 +15,10 @@ mobility_state_college <- filter(mobility_state, educ %in% c("Some college, no 4
                                                              "Post-graduate training or professional schooling after college (e.g., toward a Master's degree or Ph.D.; law or medical "),
                                  !is.na(q13))
 
-ggplot(mobility_state, aes(x=q13)) +
-  geom_bar(stat="count")
+ggplot(mobility_state, aes(x=q13, color=q13, fill=q13)) +
+  geom_bar(stat="count") +
+  scale_color_colorblind() +
+  scale_fill_colorblind()
 
 table(mobility_state$q13)
 1067/(1067+440)

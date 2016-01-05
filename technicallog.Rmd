@@ -35,14 +35,20 @@ part_time <- select(tbl, PPTUG_EF)
 enrollment <- select(tbl, UGDS)
 adult_students <- select(tbl, UG25abv)
 degree_breakdown <- select(tbl, PCIP01:PCIP54)
+
 carnegie_classes <- select(tbl, CCBASIC:CCSIZSET)
-cost <- select(tbl, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG)
+
+cost <- select(tbl, NPT4_PUB, NPT4_PRIV, NPT4_PROG, NPT4_OTHER, COSTT4_A:TUITIONFEE_PROG)
 school_business <- select(tbl, TUITFTE:PFTFAC)
 descriptive_information <- select(tbl, UNITID:LONGITUDE, Year)
+
 admission_rate <- select(tbl, ADM_RATE)
-test_scores <- select(tbl, SATVR25:SAT_AVG)
-federal_aid_percent <- select(tbl, PCTFLOAN, PCTPELL)
+
+#test_scores <- select(tbl, SATVR25:SAT_AVG)
+#federal_aid_percent <- select(tbl, PCTFLOAN, PCTPELL)
+
 debt_medians <- select(tbl, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN)
+
 operating <- select(tbl, CURROPER)
 online <- select(tbl, DISTANCEONLY)
 ```
@@ -52,7 +58,9 @@ The future earnings in the dataset is given at a variety of time increments, e.g
 Now that I have chosen a much smaller selection of the variables, it's possible to "collect" the data frame into local memory which makes future manipulation a bit easier to handle.
 
 ```{r}
-trim <- select(tbl, contains("_p10"), -CUML_DEBT_P10, C150_4_POOLED, C150_L4_POOLED, C200_4_POOLED, C200_L4_POOLED, C150_4_POOLED_SUPP, C150_L4_POOLED_SUPP, C200_4_POOLED_SUPP, C200_L4_POOLED_SUPP, RET_FT4:RET_PTL4, PFTFTUG1_EF, PPTUG_EF, UGDS, UG25abv, PCIP01:PCIP54, CCBASIC:CCSIZSET, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG, TUITFTE:PFTFAC, UNITID:LONGITUDE, Year, ADM_RATE, SATVR25:SAT_AVG, PCTFLOAN, PCTPELL, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN, CURROPER, DISTANCEONLY)
+trim <- select(tbl, contains("_p10"), -CUML_DEBT_P10, C150_4_POOLED, C150_L4_POOLED, C200_4_POOLED, C200_L4_POOLED, C150_4_POOLED_SUPP, C150_L4_POOLED_SUPP, C200_4_POOLED_SUPP, C200_L4_POOLED_SUPP, PFTFTUG1_EF, PPTUG_EF, UGDS, UG25abv, PCIP01:PCIP54, CCBASIC:CCSIZSET, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG, TUITFTE:PFTFAC, UNITID:LONGITUDE, Year, ADM_RATE, SATVR25:SAT_AVG, PCTFLOAN, PCTPELL, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN, CURROPER, DISTANCEONLY)
+
+#RET_FT4:RET_PTL4,
 
 trim <- collect(trim)
 ```
@@ -95,6 +103,21 @@ normal <- filter(trim, !grepl("special", ignore.case = TRUE, carnegie_basic))
 ```
 
 This completes the initial wrangling pass. More wrangling is necessary later, but this is much more context dependent, e.g. remove NA's of 10 year median earnings so that we can have a nice plot. 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+I gathered some general distribution information for some of the variables.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```{r}
+adult <- select(trim, name, share_25_older, Year)
+adult <- filter(adult, Year %in% c(2007, 2009, 2011), !is.na(share_25_older))
+quantile(adult$share_25_older, probs=seq(0.15, .95, .1))
+
+range((trim %>% select(retention_rate.four_year.full_time, Year) %>% filter(!is.na(retention_rate.four_year.full_time)))$retention_rate.four_year.full_time)
+```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+What about outliers?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The next thing I did was to explore the data set with a variety of plots. In this process I made use of two color blind friendly palettes that I found. 
 
@@ -164,6 +187,10 @@ ggplot(aes(x = state), data = state_earnings) +
 
 #the scale is skewing the medians for some states
 #should shift to the coord_trans zoom
+
+#the sd does decrease between the two measures, so I've controlled for some degree of the differences in the states
+sd(state_earnings$median_median)
+sd(state_earnings$median_adjusted)
 ```
 
 Can state earnings differences be explained by the "prestige" of schools present? If we use admission rate as a measure of that quality, do we see large differences between states?
@@ -199,8 +226,9 @@ I was particularly curious about the relationship between SAT/ACT scores and eve
 
 I had also planned to train on years 2007, 2009 and then test on 2011, which only further limited the available data once NAs were accounted for. At this time, the attempt to build a linear regression model has been put on hold.
 
-Attempting K-means clustering on percentages of degrees.
-
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+K-means clustering on percentages of degrees.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```{r}
 #degree_breakdown <- collect(degree_breakdown)
 degree_breakdown_filter <- ten_earnings %>% select(contains("program_percentage")) %>% filter(!is.na(program_percentage.agriculture))
@@ -303,3 +331,7 @@ ggplot(aes(x = program_cluster), data = ten_earnings_filter) +
   scale_x_discrete(limits=unique(ten_earnings_filter$program_cluster)) +
   guides(fill=FALSE)
 ```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Rural vs urban schools?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
