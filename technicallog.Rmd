@@ -346,3 +346,45 @@ cor(ten_earnings_filter$X10_yrs_after_entry.median, ten_earnings_filter$admissio
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Rural vs urban schools?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+```{r}
+no_act_na <- filter(trim, !is.na(admission_rate.overall), !is.na(act_scores.midpoint.cumulative))
+
+cor(no_act_na$admission_rate.overall, no_act_na$act_scores.midpoint.cumulative)
+
+no_act_na <- filter(no_act_na, !grepl("beauty", ignore.case = TRUE, name), 
+                            !grepl("hair", ignore.case = TRUE, name),
+                            !grepl("cosmetology", ignore.case = TRUE, name),
+                            !grepl("culinary", ignore.case = TRUE, name),
+                            !grepl("funeral", ignore.case = TRUE, name),
+                            !grepl("restaurant", ignore.case = TRUE, name),
+                            !grepl("mortuary", ignore.case = TRUE, name),
+                            !grepl("special", ignore.case = TRUE, carnegie_basic),
+                            !grepl("the art institute", ignore.case = TRUE, name),
+                            !grepl("media", ignore.case = TRUE, name),
+                            !is.na(carnegie_basic))
+
+ggplot(no_act_na, aes(x=admission_rate.overall, y=act_scores.midpoint.cumulative)) +
+  geom_jitter()
+
+filter(no_act_na, act_scores.midpoint.cumulative < 20, admission_rate.overall < 0.25)$act_scores.midpoint.english
+
+#had some outlier years
+filter(trim, name == "California State University-San Bernardino")$admission_rate.overall
+
+#there's a section that's really weird in the above plot where admission rates are really low and scores are lower than might be expected.
+#in the case of california state university-san bernardino, there seems to have been a sudden drop of admittance rate which returned to normal after 3 years
+    #recession caused?
+```
+
+```{r}
+admission_earnings <- filter(ten_earnings, !is.na(admission_rate.overall))
+
+ggplot(admission_earnings, aes(x=admission_rate.overall, y=X10_yrs_after_entry.median)) +
+  geom_point()
+
+act_admission_earnings <- filter(admission_earnings, !is.na(act_scores.midpoint.cumulative))
+
+ggplot(act_admission_earnings, aes(x=admission_rate.overall, y=X10_yrs_after_entry.median)) +
+  geom_point(aes(color=act_scores.midpoint.cumulative))
+```

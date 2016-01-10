@@ -20,7 +20,7 @@ data_dictionary <- read.csv("CollegeScorecardDataDictionary-09-12-2015.csv")
 theme_set(theme_few())
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-trim <- select(tbl, contains("_p10"), -CUML_DEBT_P10, C150_4_POOLED, C150_L4_POOLED, C200_4_POOLED, C200_L4_POOLED, C150_4_POOLED_SUPP, C150_L4_POOLED_SUPP, C200_4_POOLED_SUPP, C200_L4_POOLED_SUPP, PFTFTUG1_EF, PPTUG_EF, UGDS, UG25abv, PCIP01:PCIP54, CCBASIC:CCSIZSET, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG, TUITFTE:PFTFAC, UNITID:LONGITUDE, Year, ADM_RATE, SATVR25:SAT_AVG, PCTFLOAN, PCTPELL, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN, CURROPER, DISTANCEONLY, COMP_ORIG_YR2_RT:ENRL_2YR_TRANS_YR2_RT, COMP_ORIG_YR3_RT:ENRL_2YR_TRANS_YR3_RT, COMP_ORIG_YR4_RT:ENRL_2YR_TRANS_YR4_RT, COMP_ORIG_YR6_RT:ENRL_2YR_TRANS_YR6_RT, COMP_ORIG_YR8_RT:ENRL_2YR_TRANS_YR8_RT )
+trim <- select(tbl, md_earn_wne_p10, C150_4_POOLED, C150_L4_POOLED, C200_4_POOLED, C200_L4_POOLED, C150_4_POOLED_SUPP, C150_L4_POOLED_SUPP, C200_4_POOLED_SUPP, C200_L4_POOLED_SUPP, PFTFTUG1_EF, PPTUG_EF, UGDS, PCIP01:PCIP54, CCBASIC:CCSIZSET, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG, TUITFTE:PFTFAC, UNITID:LONGITUDE, Year, ADM_RATE, ACTCMMID, SAT_AVG, PCTFLOAN, PCTPELL, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN, CURROPER, DISTANCEONLY, COMP_ORIG_YR2_RT:ENRL_2YR_TRANS_YR2_RT, COMP_ORIG_YR3_RT:ENRL_2YR_TRANS_YR3_RT, COMP_ORIG_YR4_RT:ENRL_2YR_TRANS_YR4_RT, COMP_ORIG_YR6_RT:ENRL_2YR_TRANS_YR6_RT, COMP_ORIG_YR8_RT:ENRL_2YR_TRANS_YR8_RT )
 
 trim <- collect(trim)
 
@@ -41,11 +41,83 @@ fill_in <- trim %>% filter(Year == 2013) %>% select(name, carnegie_basic)
 
 for(id in 1:nrow(fill_in)) {
   trim$carnegie_basic[trim$name %in% fill_in$name[id]] <- fill_in$carnegie_basic[id]
-  #trim$
+  #trim
 }
 #scale_colour_colorblind
 #scale_colour_few
 #scale_fill_few
+
+ten <- trim %>% filter(Year %in% c(2007, 2009, 2011))
+ten_earnings <- ten %>% filter(!is.na(X10_yrs_after_entry.median), X10_yrs_after_entry.median > 0)
+
+high_act <- filter(ten_earnings, act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE))
+regular_act <- filter(ten_earnings, act_scores.midpoint.cumulative <= quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE))
+
+high_test_scores <- filter(ten_earnings,
+                           act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) |
+                           sat_scores.average.overall > quantile(ten_earnings$sat_scores.average.overall, prob=.9, na.rm=TRUE)
+                           )
+regular_test_scores <- filter(ten_earnings,
+                           ( act_scores.midpoint.cumulative < quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) &
+                           act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.1, na.rm=TRUE) )
+                           |
+                           ( sat_scores.average.overall < quantile(ten_earnings$sat_scores.average.overall, prob=.9, na.rm=TRUE) &
+                           sat_scores.average.overall > quantile(ten_earnings$sat_scores.average.overall, prob=.1, na.rm=TRUE) )
+                           )
+
+numeric_ten_earnings <- ten_earnings[ ,sapply(ten_earnings, is.numeric)]
+correlation_matrix <- cor(numeric_ten_earnings, use="pairwise.complete.obs")
+low_correlation_columns <- names(correlation_matrix[correlation_matrix[,"X10_yrs_after_entry.median"] < .3, "X10_yrs_after_entry.median"])
+more_correlated <- select(ten_earnings, -one_of(low_correlation_columns))
+
+numeric_high_test_scores <- high_test_scores[ ,sapply(high_test_scores, is.numeric)]
+high_correlation_matrix <- cor(numeric_high_test_scores, use="pairwise.complete.obs")
+high_correlation_matrix[high_correlation_matrix[,"X10_yrs_after_entry.median"] > .3, "X10_yrs_after_entry.median"]
+
+numeric_regular_test_scores <- regular_test_scores[ ,sapply(regular_test_scores, is.numeric)]
+regular_correlation_matrix <- cor(numeric_regular_test_scores, use="pairwise.complete.obs")
+regular_correlation_matrix[regular_correlation_matrix[,"X10_yrs_after_entry.median"] > .3 & !is.na(regular_correlation_matrix[, "X10_yrs_after_entry.median"]), "X10_yrs_after_entry.median"]
+
+#very weak correlation between debt and future earnings
+#meaning you don't necessarily have to take on a lot of debt to make money later
+
+#higher paid faculty is well correlated with future earnings
+
+#still enrolled by 2yrs
+
+#more engineering degrees
+
+ggplot(regular_test_scores, aes(x=title_iv.still_enrolled_by.2yrs, y=X10_yrs_after_entry.median)) +
+  geom_point()
+#some weird outliers reporting 0 still_enrolled
+without_outliers <- filter(regular_test_scores, title_iv.still_enrolled_by.2yrs > 0)
+cor(without_outliers$title_iv.still_enrolled_by.2yrs, without_outliers$X10_yrs_after_entry.median)
+#correlation improves from .40 to .45 after taking out the weird schools
+
+regular_test_scores$median_debt.completers.overall
+regular_test_scores$median_debt_suppressed.completers.overall
+regular_test_scores$median_debt.noncompleters
+regular_test_scores$tuition.out_of_state
+cor(regular_test_scores$tuition.out_of_state, regular_test_scores$median_debt_suppressed.completers.overall, use="complete.obs")
+#higher out of state tuition isn't too strongly correlated with higher debt
+cor(regular_test_scores$median_debt.noncompleters, regular_test_scores$tuition.out_of_state, use="complete.obs")
+#even less correlated
+ggplot(regular_test_scores, aes(x=tuition.out_of_state, y=median_debt.completers.overall)) +
+  geom_jitter()
+
+#should I adjust earnings with the state data? I'm not sure how accurate that is...it does remove some variance but that doesn't necessarily make it a better deal I don't think
+
+ggplot(regular_test_scores, aes(x=faculty_salary, y=X10_yrs_after_entry.median)) +
+  geom_point()
+
+regular_test_scores$degrees_awarded.predominant <- as.factor(regular_test_scores$degrees_awarded.predominant)
+ggplot(regular_test_scores, aes(x=degrees_awarded.predominant)) +
+  geom_point(aes(y=X10_yrs_after_entry.median))
+
+filter(regular_test_scores, regular_test_scores$degrees_awarded.predominant == "Predominantly certificate-degree granting")$name
+#a lot of nursing schools in here which push the certificate degree granting degree earnings higher
+#the boxplot is misleading, but with scatter points it's clear that there are two different "classes" 
+#of certificate granting institutions
 ```
 
 Whether you're a student fresh from high school or an adult looking to go back to school to learn a new skill, making the right school choice can be daunting. Each school will promise you that they are the best option for your future career prospects. And each school will do its best to assure you that the cost to attend that school will be outweighed by your future success. How do you know if you're making the right choice when you hear the same thing from every school?
