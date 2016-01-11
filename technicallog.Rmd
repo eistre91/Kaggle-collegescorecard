@@ -404,3 +404,82 @@ cor(regular_admission_earnings$admission_rate.overall, regular_admission_earning
 ```{r}
 ten_earnings %>% group_by(state) %>% filter(!is.na(admission_rate.overall), admission_rate.overall > 0) %>% summarise(admission = mean(admission_rate.overall))
 ```
+
+Paying out-of-state vs in-state tuition can be an important factor.
+
+```{r}
+earnings_debt$tuition.out_of_state
+earnings_debt$tuition.in_state
+earnings_debt$X10_yrs_after_entry.median
+earnings_debt$median_debt.completers.overall
+earnings_debt$earnings_debt_ratio
+
+cor(earnings_debt$tuition.out_of_state, earnings_debt$X10_yrs_after_entry.median, use="complete.obs")
+#.504
+cor(earnings_debt$tuition.out_of_state, earnings_debt$median_debt.completers.overall, use="complete.obs")
+#.379
+cor(earnings_debt$tuition.in_state, earnings_debt$X10_yrs_after_entry.median, use="complete.obs")
+#.409
+cor(earnings_debt$tuition.in_state, earnings_debt$median_debt.completers.overall, use="complete.obs")
+#.392
+cor(earnings_debt$tuition.out_of_state, earnings_debt$earnings_debt_ratio, use="complete.obs")
+cor(earnings_debt$tuition.in_state, earnings_debt$earnings_debt_ratio, use="complete.obs")
+
+test_model <- lm(earnings_debt_ratio ~ tuition.out_of_state, earnings_debt, na.action = na.omit)
+
+ggplot(earnings_debt) +
+  geom_jitter(aes(x=tuition.out_of_state, y=earnings_debt_ratio)) +
+  scale_y_continuous(limits=c(0,10))
+
+ggplot(earnings_debt) +
+  geom_jitter(aes(x=tuition.out_of_state, y=median_debt.completers.overall, color=cbPalette[1])) +
+  geom_jitter(aes(x=tuition.in_state, y=median_debt.completers.overall, color=as.factor(1)))
+
+
+
+
+```
+
+The debt relationship disappears for the mid students.
+
+```{r}
+ggplot(earnings_debt) +
+  geom_jitter(aes(x=median_debt.completers.overall, y=X10_yrs_after_entry.median))
+#very weak correlation between debt and future earnings
+#meaning you don't necessarily have to take on a lot of debt to make money later
+#for regular_test_scores matrix
+
+ggplot(regular_test_scores) +
+  geom_jitter(aes(x=median_debt.completers.overall, y=X10_yrs_after_entry.median))
+
+regular_test_scores <- filter(earnings_debt,
+                           ( act_scores.midpoint.cumulative < quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) &
+                           act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.1, na.rm=TRUE) )
+                           |
+                           ( sat_scores.average.overall < quantile(ten_earnings$sat_scores.average.overall, prob=.9, na.rm=TRUE) &
+                           sat_scores.average.overall > quantile(ten_earnings$sat_scores.average.overall, prob=.1, na.rm=TRUE)
+                           
+cor(earnings_debt$median_debt.completers.overall, earnings_debt$X10_yrs_after_entry.median, use="complete.obs")
+cor(regular_test_scores$median_debt.completers.overall, regular_test_scores$X10_yrs_after_entry.median, use="complete.obs")
+```
+
+```{r}
+mean_admissions <- trim %>% filter(!is.na(admission_rate.overall)) %>% group_by(state) %>% summarise(mean_admissions = mean(admission_rate.overall))
+
+cor(ten_earnings$X10_yrs_after_entry.median, ten_earnings$admission_rate.overall, use="complete.obs")
+cor(state_earnings$admission_rate.overall, state_earnings$adjusted_earnings, use="complete.obs")
+
+ten_earnings_filter <- filter(ten_earnings, !grepl("beauty", ignore.case = TRUE, name), 
+                            !grepl("hair", ignore.case = TRUE, name),
+                            !grepl("cosmetology", ignore.case = TRUE, name),
+                            !grepl("culinary", ignore.case = TRUE, name),
+                            !grepl("funeral", ignore.case = TRUE, name),
+                            !grepl("restaurant", ignore.case = TRUE, name),
+                            !grepl("mortuary", ignore.case = TRUE, name),
+                            !grepl("special", ignore.case = TRUE, carnegie_basic),
+                            !grepl("the art institute", ignore.case = TRUE, name),
+                            !grepl("media", ignore.case = TRUE, name),
+                            !is.na(carnegie_basic))
+
+cor(ten_earnings_filter$X10_yrs_after_entry.median, ten_earnings_filter$admission_rate.overall, use="complete.obs")
+```

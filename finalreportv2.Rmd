@@ -49,9 +49,13 @@ for(id in 1:nrow(fill_in)) {
 
 ten <- trim %>% filter(Year %in% c(2007, 2009, 2011))
 ten_earnings <- ten %>% filter(!is.na(X10_yrs_after_entry.median), X10_yrs_after_entry.median > 0)
+
+earnings_debt <- ten_earnings %>% filter(!is.na(median_debt.completers.overall), median_debt.completers.overall > 0)
+
+earnings_debt <- earnings_debt %>% mutate(earnings_debt_ratio = X10_yrs_after_entry.median/median_debt.completers.overall)
 ```
 
-You're a high school senior scared about what she's going to do for college. Maybe you worked really hard but could never get your mind wrapped around Calculus. Maybe you spent so much time on extracurriculars that you didn't do as well academically as you could have. Maybe you simply fooled around too much. And now you've received acceptance letters from a few colleges, but none of them are Harvard or University of Chicago. None of them is a big name that gives you a head start on your future. How do you choose among universities without obvious advantages?
+You're a high school senior scared about what she's going to do for college. Maybe you worked really hard but could never get your mind wrapped around Calculus. Maybe you spent so much time on extracurriculars that you didn't do as well academically as you could have. Maybe you simply fooled around too much. And now you've received some acceptance letters from a few colleges, but none of them are Harvard or University of Chicago. None of them is a big name that gives you a head start on your future. How do you choose among universities without obvious advantages?
 
 Then it sounds like you're a regular high school student. 
 
@@ -59,115 +63,97 @@ The college experience is complex. Along with classes, you'll grow in numerous p
 
 If going to college is ultimately about getting a better career, that's something we can focus on. To make this more tangible, we'll consider what features of a school predict better future earnings. This will help you discover what questions to ask about a school and will make you more confident in your final choice.
 
-I must stress that we can't hope to make the choice exact, only make it easier to make.
+We'll be using data provided by the Department of Education as part of their College Scorecard project.
+
+###You're Not Doomed
+
+Your future is not set in stone just because you didn't get into one of the most highly selective schools. It actually looks pretty open:
 
 ```{r}
 options(scipen=10000)
 
 ggplot(ten_earnings) +
-  geom_jitter(aes(color=as.factor(2), x=admission_rate.overall, y=X10_yrs_after_entry.median), alpha = .75, width = .5, height = .5) +
+  geom_jitter(aes(color=as.factor(1), x=admission_rate.overall, y=X10_yrs_after_entry.median), alpha = .75, width = .5, height = .5) +
   scale_y_continuous(limits = c(15000,75000)) +
   scale_x_continuous(limits = c(0.01, 0.99), breaks = seq(.2, 1, .2), minor_breaks = seq(.1,.9,.2)) +
-  annotate("rect", xmin=.3, xmax=.99, ymin=15000, ymax=75000, alpha=.25, fill="yellow") 
+  annotate("rect", xmin=.3, xmax=.99, ymin=15000, ymax=60000, alpha=.25, fill="yellow") +
+  scale_color_few() +
+  guides(color=FALSE) + 
+  xlab("Percentage of Students Admitted") +
+  ylab("Median Earnings after 10 Years")
 
-  #scale_color_few() +
-  #geom_hline(yintercept=60000) +
-  #geom_vline(xintercept=.30) +
-  #guides(color=FALSE) + 
-
-low_admission_high_earnings <- filter(ten_earnings, X10_yrs_after_entry.median > 50000, admission_rate.overall < .4, admission_rate.overall > 0)
-regular_admission_earnings <- filter(ten_earnings, X10_yrs_after_entry.median  < 50000, admission_rate.overall > .4, admission_rate.overall > 0, admission_rate.overall < 1)
-
-low_admission <- filter(ten_earnings, admission_rate.overall < .4, admission_rate.overall > 0, X10_yrs_after_entry.median < 50000)
-no_arts <- filter(ten_earnings, !grepl("special", ignore.case = TRUE, carnegie_basic))
-
-cor(low_admission_high_earnings$X10_yrs_after_entry.median, low_admission_high_earnings$admission_rate.overall)
-cor(regular_admission_earnings$admission_rate.overall, regular_admission_earnings$X10_yrs_after_entry.median)
+#ggplot(earnings_debt) +
+#  geom_jitter(aes(x=admission_rate.overall, y=earnings_debt_ratio)) +
+#  scale_y_continuous(limits = c(0,5)) +
+#  scale_x_continuous(limits = c(0.01,0.99))
 ```
 
-###Where?
+Each point in this graph is a school with the y axis giving the median earnings of students who have attended that school, and the x axis is giving what percentage of students a school admits of those who applied. I've highlighted the block of schools that admit between 30% and 99% of students who apply and have earnings ranging from $15000 to $60000. The vast majority of schools fall into this block and within this block a significant proportion of them occuring between $30000 and $50000.
 
-The first question is ""
+Another way to say it, "the selectivity of a school does not necessarily predict future career incomes". If we calculate the degree of the correlation in this block, we find it's almost non-existent. We do see a more significant trend after selectivity crosses the 30% threshold and continues to decrease, but even that is a weak connection.
+
+Are you worried that you'll have to graduate with a crushing mountain of debt to eventually end up with a good career? If you're not looking to become something like a doctor or a lawyer (paths known to generate lots of debt and attract some of the brightest) it turns out that there isn't a relationship between the debt you take on and your future earnings. If we consider those schools with average cumulative ACT scores between 19 and 27 or with average cumulative SAT scores between 910 and 1220 we get this:
 
 ```{r}
-ten_earnings %>% group_by(state) %>% filter(!is.na(admission_rate.overall), admission_rate.overall > 0) %>% summarise(admission = mean(admission_rate.overall))
+ggplot(regular_test_scores) +
+  geom_jitter(aes(x=median_debt.completers.overall, y=X10_yrs_after_entry.median, color=as.factor(1))) +
+  scale_x_continuous(limits=c(10000, 30000)) +
+  scale_y_continuous(limits=c(15000,75000)) +
+  scale_color_few() +
+  guides(color=FALSE) +
+  xlab("Median Debt Accrued by Graduated Students") +
+  ylab("Median Earnings after 10 Years")
+
+#quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) 
+#quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.1, na.rm=TRUE) 
+#19 to 27
+#quantile(ten_earnings$sat_scores.average.overall, prob=.9, na.rm=TRUE) 
+#quantile(ten_earnings$sat_scores.average.overall, prob=.1, na.rm=TRUE)
+#910 to 1220
+                           
+#cor(earnings_debt$median_debt.completers.overall, earnings_debt$X10_yrs_after_entry.median, use="complete.obs")
+#cor(regular_test_scores$median_debt.completers.overall, regular_test_scores$X10_yrs_after_entry.median, use="complete.obs")
 ```
 
+Now hopefully you can breathe easier knowing you don't need to get into a highly selective school and you don't need to take on a large amount of debt.
+
+###Where
+
+Let's say that you're planning to move away from home for college. You may already have your mind set on a particular city or state that you want to live in for a few years. Perhaps you have no clue except that you want to get away.
+
+What does the data say about what state you should go to school in? This turns out to be a very complicated question to ask of the dataset. 
+
+First, the dataset only gives median earnings, but it gives no information about where the students have found employment after graduating. Did they move to state different from where they got their degree?
+
+The geographic mobility of people with college degrees is very high. This is further discussed here [Pew Social Trends](http://www.pewsocialtrends.org/2008/12/17/who-moves-who-stays-put-wheres-home/). Since I have no method to control for this, this lessens the relability of the data presented in this section.
+
+Then we have to consider the cost of living in states. Can we compare incomes between two states given that cost of living varies?
+
+We can control for cost of living but given the other complicating factors, this doesn't tell the whole story. I use data provided by the Tax Foundation to adjust earnings properly. ([Tax Foundation Report](http://taxfoundation.org/blog/real-value-100-each-state)) The Tax Foundation uses the average national buying power of $100, and then adjusts from there to decide if a place is more or less expensive to live than the national average.
+
 ```{r}
-high_act <- filter(ten_earnings, act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE))
-regular_act <- filter(ten_earnings, act_scores.midpoint.cumulative <= quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE))
+relative <- read.csv("relativevalue.csv", skipNul = TRUE)
+colnames(relative) <- c("state", "relative")
+relative <- inner_join(with_median, relative)
 
-high_test_scores <- filter(ten_earnings,
-                           act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) |
-                           sat_scores.average.overall > quantile(ten_earnings$sat_scores.average.overall, prob=.9, na.rm=TRUE)
-                           )
-regular_test_scores <- filter(ten_earnings,
-                           ( act_scores.midpoint.cumulative < quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) &
-                           act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.1, na.rm=TRUE) )
-                           |
-                           ( sat_scores.average.overall < quantile(ten_earnings$sat_scores.average.overall, prob=.9, na.rm=TRUE) &
-                           sat_scores.average.overall > quantile(ten_earnings$sat_scores.average.overall, prob=.1, na.rm=TRUE) )
-                           )
+mytheme <- ttheme_default(core = list(fg_params=list(cex = 2.0)))
+myt <- gridExtra::tableGrob(relative, theme = mytheme)
+grid.table(relative)
 
-numeric_ten_earnings <- ten_earnings[ ,sapply(ten_earnings, is.numeric)]
-correlation_matrix <- cor(numeric_ten_earnings, use="pairwise.complete.obs")
-low_correlation_columns <- names(correlation_matrix[correlation_matrix[,"X10_yrs_after_entry.median"] < .3, "X10_yrs_after_entry.median"])
-more_correlated <- select(ten_earnings, -one_of(low_correlation_columns))
-
-numeric_high_test_scores <- high_test_scores[ ,sapply(high_test_scores, is.numeric)]
-high_correlation_matrix <- cor(numeric_high_test_scores, use="pairwise.complete.obs")
-high_correlation_matrix[high_correlation_matrix[,"X10_yrs_after_entry.median"] > .3, "X10_yrs_after_entry.median"]
-
-numeric_regular_test_scores <- regular_test_scores[ ,sapply(regular_test_scores, is.numeric)]
-regular_correlation_matrix <- cor(numeric_regular_test_scores, use="pairwise.complete.obs")
-regular_correlation_matrix[regular_correlation_matrix[,"X10_yrs_after_entry.median"] > .3 & !is.na(regular_correlation_matrix[, "X10_yrs_after_entry.median"]), "X10_yrs_after_entry.median"]
-
-#very weak correlation between debt and future earnings
-#meaning you don't necessarily have to take on a lot of debt to make money later
-
-#higher paid faculty is well correlated with future earnings
-
-#still enrolled by 2yrs
-
-#more engineering degrees
-
-ggplot(regular_test_scores, aes(x=title_iv.still_enrolled_by.2yrs, y=X10_yrs_after_entry.median)) +
-  geom_point()
-#some weird outliers reporting 0 still_enrolled
-without_outliers <- filter(regular_test_scores, title_iv.still_enrolled_by.2yrs > 0)
-cor(without_outliers$title_iv.still_enrolled_by.2yrs, without_outliers$X10_yrs_after_entry.median)
-#correlation improves from .40 to .45 after taking out the weird schools
-
-regular_test_scores$median_debt.completers.overall
-regular_test_scores$median_debt_suppressed.completers.overall
-regular_test_scores$median_debt.noncompleters
-regular_test_scores$tuition.out_of_state
-cor(regular_test_scores$tuition.out_of_state, regular_test_scores$median_debt_suppressed.completers.overall, use="complete.obs")
-#higher out of state tuition isn't too strongly correlated with higher debt
-cor(regular_test_scores$median_debt.noncompleters, regular_test_scores$tuition.out_of_state, use="complete.obs")
-#even less correlated
-ggplot(regular_test_scores, aes(x=tuition.out_of_state, y=median_debt.completers.overall)) +
-  geom_jitter()
-
-#should I adjust earnings with the state data? I'm not sure how accurate that is...it does remove some variance but that doesn't necessarily make it a better deal I don't think
-
-ggplot(regular_test_scores, aes(x=faculty_salary, y=X10_yrs_after_entry.median)) +
-  geom_point()
-
-regular_test_scores$degrees_awarded.predominant <- as.factor(regular_test_scores$degrees_awarded.predominant)
-ggplot(regular_test_scores, aes(x=degrees_awarded.predominant)) +
-  geom_point(aes(y=X10_yrs_after_entry.median))
-
-filter(regular_test_scores, regular_test_scores$degrees_awarded.predominant == "Predominantly certificate-degree granting")$name
-#a lot of nursing schools in here which push the certificate degree granting degree earnings higher
-#the boxplot is misleading, but with scatter points it's clear that there are two different "classes" 
-#of certificate granting institutions
+relative_display <- select(relative, State = state, "Relative Value of $100" = relative)
+left <- tableGrob(relative_display[1:17,], rows = 1:17)
+middle <- tableGrob(relative_display[18:34,], rows = 18:34)
+right <- tableGrob(relative_display[35:51,], rows = 35:51)
+grid.arrange(left, middle, right, ncol=3)
 ```
 
-```{r}
-ten <- trim %>% filter(Year %in% c(2007, 2009, 2011))
-ten_earnings <- ten %>% filter(!is.na(X10_yrs_after_entry.median), X10_yrs_after_entry.median > 0)
+Further, predominant industries are different between states and influence the earning potential of students staying in those states.
 
+If there's a particular company or industry you're interested in, then it makes sense to choose a state or region where that company operates or that industry is available to work in. If that's the case, this section is of limited use to you.
+
+Thus, the following graphs, the first giving the unadjusted 10 year median earnings of students by state, and the second the adjusted earnings, should be understood only as another piece of the puzzle and not an answer by themselves.
+
+```{r}
 state_earnings <- ten_earnings %>% 
                     select(median_earnings = X10_yrs_after_entry.median, 
                            p25_earnings = pct25_earn_wne_p10,
@@ -191,27 +177,6 @@ ggplot(aes(x = state), data = state_earnings) +
   xlab("State") +
   ylab("Median Earnings After 10 Years") +
   coord_flip(ylim=c(20000,60000))
-```
-
-```{r}
-relative <- read.csv("relativevalue.csv", skipNul = TRUE)
-colnames(relative) <- c("state", "relative")
-relative <- inner_join(with_median, relative)
-
-mytheme <- ttheme_default(core = list(fg_params=list(cex = 2.0)))
-myt <- gridExtra::tableGrob(relative, theme = mytheme)
-grid.table(relative)
-
-relative_display <- select(relative, State = state, "Relative Value of $100" = relative)
-left <- tableGrob(relative_display[1:17,], rows = 1:17)
-middle <- tableGrob(relative_display[18:34,], rows = 18:34)
-right <- tableGrob(relative_display[35:51,], rows = 35:51)
-grid.arrange(left, middle, right, ncol=3)
-```
-
-```{r}
-ggplot(aes(x = relative, y = median_median), data=relative) + 
-  geom_point()
 ```
 
 ```{r}
@@ -241,28 +206,54 @@ ggplot(aes(x = state), data = state_earnings) +
   coord_flip(ylim=c(20000,60000))
 ```
 
+###Things to Investigate
 
 ```{r}
-mean_admissions <- trim %>% filter(!is.na(admission_rate.overall)) %>% group_by(state) %>% summarise(mean_admissions = mean(admission_rate.overall))
+#title_iv.still_enrolled_by.2yrs
+#faculty salary
+#how much do they spend on instruction
 
-cor(ten_earnings$X10_yrs_after_entry.median, ten_earnings$admission_rate.overall, use="complete.obs")
-cor(state_earnings$admission_rate.overall, state_earnings$adjusted_earnings, use="complete.obs")
+high_test_scores <- filter(earnings_debt,
+                           act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) |
+                           sat_scores.average.overall > quantile(ten_earnings$sat_scores.average.overall, prob=.9, na.rm=TRUE)
+                           )
 
-ten_earnings_filter <- filter(ten_earnings, !grepl("beauty", ignore.case = TRUE, name), 
-                            !grepl("hair", ignore.case = TRUE, name),
-                            !grepl("cosmetology", ignore.case = TRUE, name),
-                            !grepl("culinary", ignore.case = TRUE, name),
-                            !grepl("funeral", ignore.case = TRUE, name),
-                            !grepl("restaurant", ignore.case = TRUE, name),
-                            !grepl("mortuary", ignore.case = TRUE, name),
-                            !grepl("special", ignore.case = TRUE, carnegie_basic),
-                            !grepl("the art institute", ignore.case = TRUE, name),
-                            !grepl("media", ignore.case = TRUE, name),
-                            !is.na(carnegie_basic))
+regular_test_scores <- filter(earnings_debt,
+                           ( act_scores.midpoint.cumulative < quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) &
+                           act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.1, na.rm=TRUE) )
+                           |
+                           ( sat_scores.average.overall < quantile(ten_earnings$sat_scores.average.overall, prob=.9, na.rm=TRUE) &
+                           sat_scores.average.overall > quantile(ten_earnings$sat_scores.average.overall, prob=.1, na.rm=TRUE) )
+                           )
 
-cor(ten_earnings_filter$X10_yrs_after_entry.median, ten_earnings_filter$admission_rate.overall, use="complete.obs")
-```
+numeric_ten_earnings <- ten_earnings[ ,sapply(ten_earnings, is.numeric)]
+correlation_matrix <- cor(numeric_ten_earnings, use="pairwise.complete.obs")
+low_correlation_columns <- names(correlation_matrix[correlation_matrix[,"X10_yrs_after_entry.median"] < .3, "X10_yrs_after_entry.median"])
+more_correlated <- select(ten_earnings, -one_of(low_correlation_columns))
 
-```{r}
+numeric_high_test_scores <- high_test_scores[ ,sapply(high_test_scores, is.numeric)]
+high_correlation_matrix <- cor(numeric_high_test_scores, use="pairwise.complete.obs")
+#high_correlation_matrix[high_correlation_matrix[,"X10_yrs_after_entry.median"] > .3, "X10_yrs_after_entry.median"]
 
+numeric_regular_test_scores <- regular_test_scores[ ,sapply(regular_test_scores, is.numeric)]
+regular_correlation_matrix <- cor(numeric_regular_test_scores, use="pairwise.complete.obs")
+#regular_correlation_matrix[regular_correlation_matrix[,"X10_yrs_after_entry.median"] > .3 & !is.na(regular_correlation_matrix[, "X10_yrs_after_entry.median"]), "X10_yrs_after_entry.median"]
+
+ggplot(regular_test_scores, aes(x=title_iv.still_enrolled_by.2yrs, y=X10_yrs_after_entry.median)) +
+  geom_point()
+#some weird outliers reporting 0 still_enrolled
+without_outliers <- filter(regular_test_scores, title_iv.still_enrolled_by.2yrs > 0)
+cor(without_outliers$title_iv.still_enrolled_by.2yrs, without_outliers$X10_yrs_after_entry.median)
+#correlation improves from .40 to .45 after taking out the weird schools
+
+regular_test_scores$median_debt.completers.overall
+regular_test_scores$median_debt_suppressed.completers.overall
+regular_test_scores$median_debt.noncompleters
+regular_test_scores$tuition.out_of_state
+cor(regular_test_scores$tuition.out_of_state, regular_test_scores$median_debt_suppressed.completers.overall, use="complete.obs")
+#higher out of state tuition isn't too strongly correlated with higher debt
+cor(regular_test_scores$median_debt.noncompleters, regular_test_scores$tuition.out_of_state, use="complete.obs")
+#even less correlated
+ggplot(regular_test_scores, aes(x=tuition.out_of_state, y=median_debt.completers.overall)) +
+  geom_jitter()
 ```
