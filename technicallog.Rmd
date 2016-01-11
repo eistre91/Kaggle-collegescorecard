@@ -1,5 +1,5 @@
 ---
-title: "TechnicalLog"
+title: "Technical Log"
 author: "Erik Istre"
 date: "December 29, 2015"
 output: html_document
@@ -358,8 +358,6 @@ plot(2:10, SumWithinss, type="b")
 program_clusters <- kmeans(degree_breakdown_filter, centers=7, iter.max=1000)
 ten_earnings_filter$program_cluster <- program_clusters$cluster
 ten_earnings_filter$program_cluster <- as.factor(ten_earnings_filter$program_cluster)
-
-filter(ten_earnings_filter, program_cluster==1)$carnegie_basic
 
 ggplot(aes(x = program_cluster), data = ten_earnings_filter) +
   geom_boxplot(aes(y = X10_yrs_after_entry.median, fill=cbPalette[2])) +
