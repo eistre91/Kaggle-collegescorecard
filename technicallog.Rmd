@@ -15,6 +15,9 @@ library(ggplot2)
 library(dplyr)
 library(RSQLite)
 library(gridExtra)
+library(ggthemes)
+
+theme_set(theme_few())
 
 my_db <- src_sqlite("database.sqlite")
 tbl <- tbl(my_db, "Scorecard")
@@ -58,7 +61,7 @@ The future earnings in the dataset is given at a variety of time increments, e.g
 Now that I have chosen a much smaller selection of the variables, it's possible to "collect" the data frame into local memory which makes future manipulation a bit easier to handle.
 
 ```{r, warning=FALSE, message=FALSE}
-trim <- select(tbl, contains("_p10"), -CUML_DEBT_P10, C150_4_POOLED, C150_L4_POOLED, C200_4_POOLED, C200_L4_POOLED, C150_4_POOLED_SUPP, C150_L4_POOLED_SUPP, C200_4_POOLED_SUPP, C200_L4_POOLED_SUPP, PFTFTUG1_EF, PPTUG_EF, UGDS, UG25abv, PCIP01:PCIP54, CCBASIC:CCSIZSET, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG, TUITFTE:PFTFAC, UNITID:LONGITUDE, Year, ADM_RATE, SATVR25:SAT_AVG, PCTFLOAN, PCTPELL, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN, CURROPER, DISTANCEONLY)
+trim <- select(tbl, contains("_p10"), -CUML_DEBT_P10, C150_4_POOLED, C150_L4_POOLED, C200_4_POOLED, C200_L4_POOLED, C150_4_POOLED_SUPP, C150_L4_POOLED_SUPP, C200_4_POOLED_SUPP, C200_L4_POOLED_SUPP, PFTFTUG1_EF, PPTUG_EF, UGDS, UG25abv, PCIP01:PCIP54, CCBASIC:CCSIZSET, NPT4_PUB, NPT4_PRIV, COSTT4_A:TUITIONFEE_PROG, TUITFTE:PFTFAC, UNITID:LONGITUDE, Year, ADM_RATE, SATVR25:SAT_AVG, PCTFLOAN, PCTPELL, GRAD_DEBT_MDN, GRAD_DEBT_MDN_SUPP, WDRAW_DEBT_MDN, CURROPER, DISTANCEONLY, COMP_ORIG_YR2_RT:ENRL_2YR_TRANS_YR2_RT, COMP_ORIG_YR3_RT:ENRL_2YR_TRANS_YR3_RT, COMP_ORIG_YR4_RT:ENRL_2YR_TRANS_YR4_RT, COMP_ORIG_YR6_RT:ENRL_2YR_TRANS_YR6_RT, COMP_ORIG_YR8_RT:ENRL_2YR_TRANS_YR8_RT )
 
 trim <- collect(trim)
 ```
@@ -130,8 +133,8 @@ state_earnings <- ten_earnings %>%
 
 with_median_state_earnings <- state_earnings %>% group_by(state) %>% summarise(median_median = median(median_earnings))
 state_earnings <- mutate(state_earnings, median_median = 0)
-for(i in 1:nrow(with_median)) {
-  state_earnings$median_median[state_earnings$state == with_median[[i,1]]] <- with_median[[i,2]]
+for(i in 1:nrow(with_median_state_earnings)) {
+  state_earnings$median_median[state_earnings$state == with_median_state_earnings[[i,1]]] <- with_median_state_earnings[[i,2]]
 }
 state_earnings <- state_earnings %>% arrange(median_median)
 
@@ -169,7 +172,7 @@ Using this data, which originates from the Tax Foundation, I multipled the earni
 
 ```{r, warning=FALSE, message=FALSE}
 state_earnings <- state_earnings %>% mutate(relative_value = 0)
-for(i in 1:nrow(with_median)) {
+for(i in 1:nrow(relative)) {
   state_earnings$relative_value[state_earnings$state == relative[[i,1]]] <- relative[[i,2]]
 }
 
@@ -177,8 +180,8 @@ state_earnings <- state_earnings %>% mutate(adjusted_earnings = (median_earnings
 
 with_median_state_earnings_adjusted <- state_earnings %>% group_by(state) %>% summarise(median_adjusted = median(adjusted_earnings))
 state_earnings <- mutate(state_earnings, median_adjusted = 0)
-for(i in 1:nrow(with_median)) {
-  state_earnings$median_adjusted[state_earnings$state == with_median[[i,1]]] <- with_median[[i,2]]
+for(i in 1:nrow(with_median_state_earnings_adjusted)) {
+  state_earnings$median_adjusted[state_earnings$state == with_median_state_earnings_adjusted[[i,1]]] <- with_median_state_earnings_adjusted[[i,2]]
 }
 state_earnings <- state_earnings %>% arrange(median_adjusted)
 
@@ -207,8 +210,8 @@ state_prestige$state <- as.factor(state_prestige$state)
 state_prestige_rm <- filter(state_prestige, !is.na(admission_rate.overall))
 with_median_prestige <- state_prestige_rm %>% group_by(state) %>% summarise(median_adm = median(admission_rate.overall))
 state_prestige_rm <- mutate(state_prestige_rm, median_adm = 0)
-for(i in 1:nrow(with_median)) {
-  state_prestige_rm$median_adm[state_prestige_rm$state == with_median[[i,1]]] <- with_median[[i,2]]
+for(i in 1:nrow(with_median_prestige)) {
+  state_prestige_rm$median_adm[state_prestige_rm$state == with_median_prestige[[i,1]]] <- with_median_prestige[[i,2]]
 }
 state_prestige_rm <- state_prestige_rm %>% arrange(median_adm)
 
@@ -247,6 +250,11 @@ This difference between the really selective schools attracting bright students 
 earnings_debt <- ten_earnings %>% filter(!is.na(median_debt.completers.overall), median_debt.completers.overall > 0)
 
 earnings_debt <- earnings_debt %>% mutate(earnings_debt_ratio = X10_yrs_after_entry.median/median_debt.completers.overall)
+
+high_test_scores <- filter(earnings_debt,
+                           act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) |
+                           sat_scores.average.overall > quantile(ten_earnings$sat_scores.average.overall, prob=.9, na.rm=TRUE)
+                           )
 
 regular_test_scores <- filter(earnings_debt,
                            ( act_scores.midpoint.cumulative < quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE) &
@@ -435,11 +443,6 @@ regular_correlation_matrix <- cor(numeric_regular_test_scores, use="pairwise.com
 We find in the data that two variables in particular are more strongly correlated than others with 10 year earnings. This is the faculty salary and what percentage of students remain at the institution after two years.
 
 ```{r, warning=FALSE, message=FALSE}
-#check for multicollinearity
-cor(earnings_debt$faculty_salary, earnings_debt$title_iv.still_enrolled_by.2yrs, use="complete.obs")
-#These two things are decently correlated.
-#.63
-
 enrolled_salary <- filter(ten_earnings, !is.na(title_iv.still_enrolled_by.2yrs), title_iv.still_enrolled_by.2yrs > 0, !is.na(faculty_salary), faculty_salary > 0) 
 ```
 
