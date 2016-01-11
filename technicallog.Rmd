@@ -483,3 +483,81 @@ ten_earnings_filter <- filter(ten_earnings, !grepl("beauty", ignore.case = TRUE,
 
 cor(ten_earnings_filter$X10_yrs_after_entry.median, ten_earnings_filter$admission_rate.overall, use="complete.obs")
 ```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+relative <- read.csv("relativevalue.csv", skipNul = TRUE)
+colnames(relative) <- c("state", "relative")
+#relative <- inner_join(with_median, relative)
+
+mytheme <- ttheme_default(core = list(fg_params=list(cex = 2.0)))
+myt <- gridExtra::tableGrob(relative, theme = mytheme)
+grid.table(relative)
+
+relative_display <- select(relative, State = state, "Relative Value of $100" = relative)
+left <- tableGrob(relative_display[1:17,], rows = 1:17)
+middle <- tableGrob(relative_display[18:34,], rows = 18:34)
+right <- tableGrob(relative_display[35:51,], rows = 35:51)
+grid.arrange(left, middle, right, ncol=3)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#title_iv.still_enrolled_by.2yrs
+#faculty_salary
+
+enrolled_model <- lm(X10_yrs_after_entry.median ~ title_iv.still_enrolled_by.2yrs, earnings_debt, na.action = na.omit)
+salary_model <- lm(X10_yrs_after_entry.median ~ faculty_salary, earnings_debt, na.action = na.omit)
+
+#check for multicollinearity
+cor(earnings_debt$faculty_salary, earnings_debt$title_iv.still_enrolled_by.2yrs, use="complete.obs")
+#These two things are decently correlated.
+#.63
+
+numeric_ten_earnings <- ten_earnings[ ,sapply(ten_earnings, is.numeric)]
+correlation_matrix <- cor(numeric_ten_earnings, use="pairwise.complete.obs")
+low_correlation_columns <- names(correlation_matrix[correlation_matrix[,"X10_yrs_after_entry.median"] < .3, "X10_yrs_after_entry.median"])
+more_correlated <- select(ten_earnings, -one_of(low_correlation_columns))
+
+numeric_high_test_scores <- high_test_scores[ ,sapply(high_test_scores, is.numeric)]
+high_correlation_matrix <- cor(numeric_high_test_scores, use="pairwise.complete.obs")
+#high_correlation_matrix[high_correlation_matrix[,"X10_yrs_after_entry.median"] > .3, "X10_yrs_after_entry.median"]
+
+numeric_regular_test_scores <- regular_test_scores[ ,sapply(regular_test_scores, is.numeric)]
+regular_correlation_matrix <- cor(numeric_regular_test_scores, use="pairwise.complete.obs")
+#regular_correlation_matrix[regular_correlation_matrix[,"X10_yrs_after_entry.median"] > .3 & !is.na(regular_correlation_matrix[, "X10_yrs_after_entry.median"]), "X10_yrs_after_entry.median"]
+
+ggplot(regular_test_scores, aes(x=title_iv.still_enrolled_by.2yrs, y=X10_yrs_after_entry.median)) +
+  geom_point()
+#some weird outliers reporting 0 still_enrolled
+without_outliers <- filter(regular_test_scores, title_iv.still_enrolled_by.2yrs > 0)
+cor(without_outliers$title_iv.still_enrolled_by.2yrs, without_outliers$X10_yrs_after_entry.median)
+#correlation improves from .40 to .45 after taking out the weird schools
+
+regular_test_scores$median_debt.completers.overall
+regular_test_scores$median_debt_suppressed.completers.overall
+regular_test_scores$median_debt.noncompleters
+regular_test_scores$tuition.out_of_state
+cor(regular_test_scores$tuition.out_of_state, regular_test_scores$median_debt_suppressed.completers.overall, use="complete.obs")
+#higher out of state tuition isn't too strongly correlated with higher debt
+cor(regular_test_scores$median_debt.noncompleters, regular_test_scores$tuition.out_of_state, use="complete.obs")
+#even less correlated
+ggplot(regular_test_scores, aes(x=tuition.out_of_state, y=median_debt.completers.overall)) +
+  geom_jitter()
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#university of phoenix incorrectly reported their earnings?
+#rolled it up to aggregate for earnings
+
+enrolled_salary_out <- filter(enrolled_salary, faculty_salary < 4500 & X10_yrs_after_entry.median > 53000)
+enrolled_salary_in <- filter(enrolled_salary, !(faculty_salary < 4500 & X10_yrs_after_entry.median > 53000))
+cor(enrolled_salary_in$faculty_salary, enrolled_salary_in$X10_yrs_after_entry.median)
+
+enrolled_salary <- filter(enrolled_salary, !grepl("phoenix", ignore.case = TRUE, name))
+
+ggplot(enrolled_salary) +
+  geom_jitter(aes(x=faculty_salary, y=X10_yrs_after_entry.median)) +
+  scale_y_continuous(limits=c(15000,75000)) + 
+  geom_hline(aes(yintercept=53000)) +
+  geom_vline(aes(xintercept=4500))
+```
+```
