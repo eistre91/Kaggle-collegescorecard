@@ -49,7 +49,51 @@ for(id in 1:nrow(fill_in)) {
 
 ten <- trim %>% filter(Year %in% c(2007, 2009, 2011))
 ten_earnings <- ten %>% filter(!is.na(X10_yrs_after_entry.median), X10_yrs_after_entry.median > 0)
+```
 
+You're a high school senior scared about what she's going to do for college. Maybe you worked really hard but could never get your mind wrapped around Calculus. Maybe you spent so much time on extracurriculars that you didn't do as well academically as you could have. Maybe you simply fooled around too much. And now you've received acceptance letters from a few colleges, but none of them are Harvard or University of Chicago. None of them is a big name that gives you a head start on your future. How do you choose among universities without obvious advantages?
+
+Then it sounds like you're a regular high school student. 
+
+The college experience is complex. Along with classes, you'll grow in numerous person ways. It's impossible to know what college is "best" for you. However, do not fear your future. I'm here to help the choice seem a little less mysterious and impossible.
+
+If going to college is ultimately about getting a better career, that's something we can focus on. To make this more tangible, we'll consider what features of a school predict better future earnings. This will help you discover what questions to ask about a school and will make you more confident in your final choice.
+
+I must stress that we can't hope to make the choice exact, only make it easier to make.
+
+```{r}
+options(scipen=10000)
+
+ggplot(ten_earnings) +
+  geom_jitter(aes(color=as.factor(2), x=admission_rate.overall, y=X10_yrs_after_entry.median), alpha = .75, width = .5, height = .5) +
+  scale_y_continuous(limits = c(15000,75000)) +
+  scale_x_continuous(limits = c(0.01, 0.99), breaks = seq(.2, 1, .2), minor_breaks = seq(.1,.9,.2)) +
+  annotate("rect", xmin=.3, xmax=.99, ymin=15000, ymax=75000, alpha=.25, fill="yellow") 
+
+  #scale_color_few() +
+  #geom_hline(yintercept=60000) +
+  #geom_vline(xintercept=.30) +
+  #guides(color=FALSE) + 
+
+low_admission_high_earnings <- filter(ten_earnings, X10_yrs_after_entry.median > 50000, admission_rate.overall < .4, admission_rate.overall > 0)
+regular_admission_earnings <- filter(ten_earnings, X10_yrs_after_entry.median  < 50000, admission_rate.overall > .4, admission_rate.overall > 0, admission_rate.overall < 1)
+
+low_admission <- filter(ten_earnings, admission_rate.overall < .4, admission_rate.overall > 0, X10_yrs_after_entry.median < 50000)
+no_arts <- filter(ten_earnings, !grepl("special", ignore.case = TRUE, carnegie_basic))
+
+cor(low_admission_high_earnings$X10_yrs_after_entry.median, low_admission_high_earnings$admission_rate.overall)
+cor(regular_admission_earnings$admission_rate.overall, regular_admission_earnings$X10_yrs_after_entry.median)
+```
+
+###Where?
+
+The first question is ""
+
+```{r}
+ten_earnings %>% group_by(state) %>% filter(!is.na(admission_rate.overall), admission_rate.overall > 0) %>% summarise(admission = mean(admission_rate.overall))
+```
+
+```{r}
 high_act <- filter(ten_earnings, act_scores.midpoint.cumulative > quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE))
 regular_act <- filter(ten_earnings, act_scores.midpoint.cumulative <= quantile(ten_earnings$act_scores.midpoint.cumulative, prob=.9, na.rm=TRUE))
 
@@ -120,28 +164,6 @@ filter(regular_test_scores, regular_test_scores$degrees_awarded.predominant == "
 #of certificate granting institutions
 ```
 
-Whether you're a student fresh from high school or an adult looking to go back to school to learn a new skill, making the right school choice can be daunting. Each school will promise you that they are the best option for your future career prospects. And each school will do its best to assure you that the cost to attend that school will be outweighed by your future success. How do you know if you're making the right choice when you hear the same thing from every school?
-
-The Department of Education must have had the same question when they released the College Scorecard dataset([Data](https://collegescorecard.ed.gov/data/)). In their own words:
-
-"The College Scorecard project is designed to increase transparency, putting the power in the hands of students and families to compare colleges and see how well schools are preparing their students to be successful."
-
-This dataset offers us a concrete measure of graduate's future success: how successful are they in their future careers? I'll guide us through the dataset and at the end of it all provide you with a tool to explore your options. This will not exhaust the dataset or make up your mind for you, but I hope it'll make the choice a little less mysterious.
-
-Before we get to the analysis, it's important to note that a the entire college experience isn't reducible to future earnings. There's the complex tapestry of personal growth and social experience during college that can't be taken for granted. This analysis should be taken for what it is, an attempt to understand a single measurable aspect of this multi-faceted experience: how to choose to maximize your future earnings.
-
-### Where?
-
-First, where should your school be located? Where you attend school could have implications for what career connections you're able to make which will influence your initial career options. For example, if you want to work at a software startup in Silicon Valley, it's probably not as useful to go to a school in South Carolina. We'll focus specifically on a state level, considering the contiguous 48 states, Haiwaii, Alaska, and, additionally, the District of Columbia.
-
-We won't be able to find a precise answer to the best state to get a degree from. There a few complicating factors that are hard to control for. States that exhibit generally higher earnings for graduates might be due to that state having a higher cost of living. We can put the states on more equal footing by taking this into account using the relative value of the dollar in each state.([Tax Foundation Report](http://taxfoundation.org/blog/real-value-100-each-state)) 
-
-However, this isn't perfect since people with college degrees tend to have a considerable amount of geographic mobility. ([Pew Social Trends](http://www.pewsocialtrends.org/2008/12/17/who-moves-who-stays-put-wheres-home/)) We can't be sure that graduates are working in the state they got their degree and the College Scorecard dataset doesn't go into this. 
-
-Finally, it may be that states which exhibit higher than normal earnings do so because prestigious schools are clustered in that state. Thus it may not be that location matters so much as prestige of the schools and that's driving higher earnings.
-
-First, we'll look at the unfiltered data. 
-
 ```{r}
 ten <- trim %>% filter(Year %in% c(2007, 2009, 2011))
 ten_earnings <- ten %>% filter(!is.na(X10_yrs_after_entry.median), X10_yrs_after_entry.median > 0)
@@ -171,8 +193,6 @@ ggplot(aes(x = state), data = state_earnings) +
   coord_flip(ylim=c(20000,60000))
 ```
 
-Relative value of $100 based on national average.
-
 ```{r}
 relative <- read.csv("relativevalue.csv", skipNul = TRUE)
 colnames(relative) <- c("state", "relative")
@@ -189,14 +209,10 @@ right <- tableGrob(relative_display[35:51,], rows = 35:51)
 grid.arrange(left, middle, right, ncol=3)
 ```
 
-Now what do this look like we if take into consideration the cost of living. First, we should determine if there is a relationship between the median earnings in a state and the cost of living. As we might expect, we find there's a moderate degree of correlation, well-exhibited by the plot:
-
 ```{r}
 ggplot(aes(x = relative, y = median_median), data=relative) + 
   geom_point()
 ```
-
-Now if we take this into account, we get a distinctly different plot.
 
 ```{r}
 state_earnings <- state_earnings %>% mutate(relative_value = 0)

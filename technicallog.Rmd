@@ -388,3 +388,19 @@ act_admission_earnings <- filter(admission_earnings, !is.na(act_scores.midpoint.
 ggplot(act_admission_earnings, aes(x=admission_rate.overall, y=X10_yrs_after_entry.median)) +
   geom_point(aes(color=act_scores.midpoint.cumulative))
 ```
+
+```{r}
+low_admission_high_earnings <- filter(ten_earnings, X10_yrs_after_entry.median > 50000, admission_rate.overall < .4, admission_rate.overall > 0)
+regular_admission_earnings <- filter(ten_earnings, X10_yrs_after_entry.median  < 50000, admission_rate.overall > .4, admission_rate.overall > 0, admission_rate.overall < 1)
+
+low_admission <- filter(ten_earnings, admission_rate.overall < .4, admission_rate.overall > 0, X10_yrs_after_entry.median < 50000)
+no_arts <- filter(ten_earnings, !grepl("special", ignore.case = TRUE, carnegie_basic))
+
+cor(low_admission_high_earnings$X10_yrs_after_entry.median, low_admission_high_earnings$admission_rate.overall)
+cor(regular_admission_earnings$admission_rate.overall, regular_admission_earnings$X10_yrs_after_entry.median)
+```
+
+
+```{r}
+ten_earnings %>% group_by(state) %>% filter(!is.na(admission_rate.overall), admission_rate.overall > 0) %>% summarise(admission = mean(admission_rate.overall))
+```
